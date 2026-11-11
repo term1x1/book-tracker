@@ -1,0 +1,18 @@
+{
+  "name": "Мои книги",
+  "short_name": "Книги",
+  "description": "Трекер книг: библиотека, оценки, прогресс чтения и статистика",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1a2c",
+  "theme_color": "#16283f",
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

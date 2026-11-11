@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Book, BookStatus } from './types'
 import { STATUS_LABELS } from './types'
 import { loadBooks, saveBooks } from './storage'
-import { haptic } from './telegram'
+import { haptic, canAddToHomeScreen, addToHomeScreen } from './telegram'
 import BookCard from './components/BookCard'
 import BookForm from './components/BookForm'
 import Stats from './components/Stats'
@@ -84,6 +84,16 @@ export default function App() {
         <h1>
           <img src="./logo.png" alt="" className="app-logo" />
           Мои книги
+          {canAddToHomeScreen && (
+            <button
+              className="home-screen-btn"
+              onClick={addToHomeScreen}
+              title="Добавить на главный экран"
+              aria-label="Добавить на главный экран"
+            >
+              ➕ На экран
+            </button>
+          )}
         </h1>
         <div className="tabs">
           <button className={tab === 'library' ? 'tab active' : 'tab'} onClick={() => setTab('library')}>

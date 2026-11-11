@@ -13,6 +13,8 @@ interface TelegramWebApp {
   ready(): void
   expand(): void
   disableVerticalSwipes?(): void
+  addToHomeScreen?(): void
+  checkHomeScreenStatus?(cb: (status: 'unsupported' | 'unknown' | 'added' | 'missed') => void): void
   colorScheme: 'light' | 'dark'
   themeParams: Record<string, string>
   CloudStorage?: CloudStorage
@@ -50,6 +52,19 @@ export function initTelegram() {
     if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes?.()
   } catch {
     // не в Telegram — игнорируем
+  }
+}
+
+// Можно ли предложить добавить ярлык на главный экран (Bot API 8.0+)
+export const canAddToHomeScreen = Boolean(
+  tg?.addToHomeScreen && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0'),
+)
+
+export function addToHomeScreen() {
+  try {
+    tg?.addToHomeScreen?.()
+  } catch {
+    // недоступно — игнорируем
   }
 }
 
