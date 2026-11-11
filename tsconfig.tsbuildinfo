@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/storage.ts","./src/telegram.ts","./src/types.ts","./src/components/bookcard.tsx","./src/components/bookform.tsx","./src/components/starrating.tsx","./src/components/stats.tsx"],"version":"5.9.3"}
