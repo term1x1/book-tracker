@@ -91,7 +91,10 @@ export default function App() {
               title="Добавить на главный экран"
               aria-label="Добавить на главный экран"
             >
-              ➕ На экран
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+              </svg>
+              На экран
             </button>
           )}
         </h1>
