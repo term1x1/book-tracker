@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Book, BookStatus } from './types'
 import { STATUS_LABELS } from './types'
 import { loadBooks, saveBooks } from './storage'
-import { haptic, canAddToHomeScreen, addToHomeScreen } from './telegram'
+import { haptic, canAddToHomeScreen, addToHomeScreen, pingStats } from './telegram'
 import BookCard from './components/BookCard'
 import BookForm from './components/BookForm'
 import Stats from './components/Stats'
@@ -24,6 +24,7 @@ export default function App() {
     loadBooks()
       .then(setBooks)
       .finally(() => setLoading(false))
+    pingStats()
   }, [])
 
   const persist = (next: Book[]) => {

@@ -5,6 +5,10 @@ compatibility_date = "2025-01-01"
 [vars]
 MINI_APP_URL = "https://term1x1.github.io/book-tracker/"
 
+[[kv_namespaces]]
+binding = "USERS"
+id = "1f70a80d52fd4482b492a4dfd463e3e0"
+
 # Секреты (задаются командой `npx wrangler secret put <ИМЯ>`):
 # BOT_TOKEN      — токен бота из @BotFather
 # WEBHOOK_SECRET — любая случайная строка, защищает webhook от посторонних

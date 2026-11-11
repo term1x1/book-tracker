@@ -22,9 +22,58 @@ async function tg(token, method, payload) {
   return res.json()
 }
 
+// Счётчик уникальных пользователей в KV: ключи bot:<id> и app:<id>
+async function remember(env, key) {
+  try {
+    const existing = await env.USERS.get(key)
+    if (!existing) {
+      await env.USERS.put(key, new Date().toISOString())
+    }
+  } catch {
+    // статистика не должна ломать бота
+  }
+}
+
+async function countByPrefix(env, prefix) {
+  let count = 0
+  let cursor
+  do {
+    const page = await env.USERS.list({ prefix, cursor })
+    count += page.keys.length
+    cursor = page.list_complete ? null : page.cursor
+  } while (cursor)
+  return count
+}
+
+const CORS = {
+  'Access-Control-Allow-Origin': 'https://term1x1.github.io',
+  'Access-Control-Allow-Methods': 'GET',
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
+
+    // Приложение отмечается при открытии: /ping?uid=<telegram user id>
+    if (url.pathname === '/ping') {
+      const uid = url.searchParams.get('uid')
+      if (uid && /^\d{1,20}$/.test(uid)) {
+        await remember(env, `app:${uid}`)
+      }
+      return new Response('ok', { headers: CORS })
+    }
+
+    // Статистика: сколько уникальных людей запускали бота и приложение
+    if (url.pathname === '/stats') {
+      const [botUsers, appUsers] = await Promise.all([
+        countByPrefix(env, 'bot:'),
+        countByPrefix(env, 'app:'),
+      ])
+      return Response.json(
+        { запускали_бота: botUsers, открывали_приложение: appUsers },
+        { headers: CORS },
+      )
+    }
 
     // Одноразовая настройка: открыть https://<worker>/setup в браузере
     if (url.pathname === '/setup') {
@@ -43,6 +92,9 @@ export default {
       }
       const update = await request.json()
       const msg = update.message
+      if (msg?.chat?.id) {
+        await remember(env, `bot:${msg.chat.id}`)
+      }
       if (msg?.text?.startsWith('/start')) {
         await tg(env.BOT_TOKEN, 'sendMessage', {
           chat_id: msg.chat.id,

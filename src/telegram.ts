@@ -25,7 +25,7 @@ interface TelegramWebApp {
   onEvent(event: string, handler: () => void): void
   isVersionAtLeast(version: string): boolean
   initData: string
-  initDataUnsafe?: unknown
+  initDataUnsafe?: { user?: { id?: number } }
 }
 
 declare global {
@@ -53,6 +53,13 @@ export function initTelegram() {
   } catch {
     // не в Telegram — игнорируем
   }
+}
+
+// Анонимная отметка «приложение открывали» для счётчика пользователей
+export function pingStats() {
+  const uid = tg?.initDataUnsafe?.user?.id
+  if (!uid) return // вне Telegram не считаем
+  fetch(`https://book-tracker-bot.term1x.workers.dev/ping?uid=${uid}`).catch(() => {})
 }
 
 // Можно ли предложить добавить ярлык на главный экран (Bot API 8.0+)
