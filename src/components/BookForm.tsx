@@ -222,7 +222,18 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
           }}
         />
         <button className="cover-upload-btn" onClick={() => fileInputRef.current?.click()}>
-          📷 {coverUrl ? 'Заменить обложку своим фото' : 'Загрузить свою обложку'}
+          <span className="cover-upload-icon" aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M4 8.5a2 2 0 0 1 2-2h1.4l1.1-1.6a1.5 1.5 0 0 1 1.24-.65h4.52c.5 0 .96.24 1.24.65l1.1 1.6H18a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+            </svg>
+          </span>
+          {coverUrl ? 'Заменить обложку своим фото' : 'Загрузить свою обложку'}
         </button>
 
         <div className="field">

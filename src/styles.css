@@ -412,19 +412,43 @@ body.modal-open {
 }
 
 .cover-upload-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   margin: -4px 0 14px;
-  padding: 9px 12px;
-  border: 1px dashed var(--hint);
-  border-radius: 10px;
-  background: transparent;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--button) 12%, transparent);
   color: var(--link);
   font-size: 13.5px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
 }
 
-.cover-upload-btn:active { opacity: 0.7; }
+.cover-upload-btn:hover {
+  background: color-mix(in srgb, var(--button) 18%, transparent);
+}
+
+.cover-upload-btn:active {
+  transform: scale(0.98);
+  background: color-mix(in srgb, var(--button) 24%, transparent);
+}
+
+.cover-upload-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--button), #4f9cf0);
+  color: #fff;
+  flex-shrink: 0;
+}
 
 .autocomplete { position: relative; }
 
