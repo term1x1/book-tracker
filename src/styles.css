@@ -411,6 +411,21 @@ body.modal-open {
   cursor: pointer;
 }
 
+.cover-upload-btn {
+  display: block;
+  width: 100%;
+  margin: -4px 0 14px;
+  padding: 9px 12px;
+  border: 1px dashed var(--hint);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--link);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.cover-upload-btn:active { opacity: 0.7; }
+
 .autocomplete { position: relative; }
 
 .searching {

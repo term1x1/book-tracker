@@ -40,6 +40,29 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
   // то, с которым открыли форму, или только что выбранное из подсказок
   const acceptedTitleRef = useRef(book?.title ?? '')
   const abortRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Своя обложка: сжимаем фото до маленькой картинки,
+  // чтобы она поместилась в облачное хранилище Telegram
+  const handleCoverFile = (file: File) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const maxW = 160
+      const maxH = 240
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(img.width * scale))
+      canvas.height = Math.max(1, Math.round(img.height * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      setCoverUrl(canvas.toDataURL('image/jpeg', 0.62))
+    }
+    img.onerror = () => URL.revokeObjectURL(url)
+    img.src = url
+  }
 
   useEffect(() => {
     if (title === acceptedTitleRef.current) {
@@ -186,6 +209,21 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
             </label>
           </div>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleCoverFile(f)
+            e.target.value = '' // чтобы можно было выбрать то же фото снова
+          }}
+        />
+        <button className="cover-upload-btn" onClick={() => fileInputRef.current?.click()}>
+          📷 {coverUrl ? 'Заменить обложку своим фото' : 'Загрузить свою обложку'}
+        </button>
 
         <div className="field">
           <span>Статус</span>
