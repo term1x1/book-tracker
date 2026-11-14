@@ -9,6 +9,12 @@ MINI_APP_URL = "https://term1x1.github.io/book-tracker/"
 binding = "USERS"
 id = "1f70a80d52fd4482b492a4dfd463e3e0"
 
+# Общая база: профили пользователей и их библиотеки
+[[d1_databases]]
+binding = "DB"
+database_name = "book-tracker-db"
+database_id = "fc0fafad-9fc9-44f0-a439-baef03c98809"
+
 # Секреты (задаются командой `npx wrangler secret put <ИМЯ>`):
 # BOT_TOKEN      — токен бота из @BotFather
 # WEBHOOK_SECRET — любая случайная строка, защищает webhook от посторонних

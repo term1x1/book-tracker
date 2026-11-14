@@ -6,8 +6,10 @@ import { haptic, canAddToHomeScreen, addToHomeScreen, pingStats } from './telegr
 import BookCard from './components/BookCard'
 import BookForm from './components/BookForm'
 import Stats from './components/Stats'
+import Readers from './components/Readers'
+import { syncLibrary } from './social'
 
-type Tab = 'library' | 'stats'
+type Tab = 'library' | 'readers' | 'stats'
 type StatusFilter = BookStatus | 'all'
 
 export default function App() {
@@ -22,7 +24,10 @@ export default function App() {
 
   useEffect(() => {
     loadBooks()
-      .then(setBooks)
+      .then((loaded) => {
+        setBooks(loaded)
+        syncLibrary(loaded) // профиль в общей базе всегда актуален
+      })
       .finally(() => setLoading(false))
     pingStats()
   }, [])
@@ -30,6 +35,7 @@ export default function App() {
   const persist = (next: Book[]) => {
     setBooks(next)
     saveBooks(next).catch((e) => console.error('save failed', e))
+    syncLibrary(next)
   }
 
   const handleSave = (book: Book) => {
@@ -102,6 +108,9 @@ export default function App() {
         <div className="tabs">
           <button className={tab === 'library' ? 'tab active' : 'tab'} onClick={() => setTab('library')}>
             Библиотека
+          </button>
+          <button className={tab === 'readers' ? 'tab active' : 'tab'} onClick={() => setTab('readers')}>
+            Читатели
           </button>
           <button className={tab === 'stats' ? 'tab active' : 'tab'} onClick={() => setTab('stats')}>
             Статистика
@@ -177,6 +186,8 @@ export default function App() {
             +
           </button>
         </>
+      ) : tab === 'readers' ? (
+        <Readers />
       ) : (
         <Stats books={books} />
       )}

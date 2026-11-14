@@ -159,14 +159,143 @@ fetch('/stats.json').then(r => r.json()).then(s => {
 </body>
 </html>`
 
-const CORS = {
-  'Access-Control-Allow-Origin': 'https://term1x1.github.io',
-  'Access-Control-Allow-Methods': 'GET',
+// Откуда разрешаем запросы: продакшен и локальная разработка
+const ALLOWED_ORIGINS = ['https://term1x1.github.io', 'http://localhost:5173']
+
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin')
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
+}
+
+// Проверка подписи Telegram initData: гарантирует, что запрос
+// пришёл из настоящего Mini App от настоящего пользователя
+async function validateInitData(initData, botToken) {
+  try {
+    const params = new URLSearchParams(initData)
+    const hash = params.get('hash')
+    if (!hash) return null
+    params.delete('hash')
+    const dataCheckString = [...params.entries()]
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join('\n')
+    const enc = new TextEncoder()
+    const hmac = async (keyBytes, data) => {
+      const key = await crypto.subtle.importKey(
+        'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+      )
+      return crypto.subtle.sign('HMAC', key, enc.encode(data))
+    }
+    const secret = await hmac(enc.encode('WebAppData'), botToken)
+    const sig = new Uint8Array(await hmac(secret, dataCheckString))
+    const hex = [...sig].map((b) => b.toString(16).padStart(2, '0')).join('')
+    if (hex !== hash) return null
+    // подпись живёт сутки — старую не принимаем
+    const authDate = Number(params.get('auth_date'))
+    if (!authDate || Date.now() / 1000 - authDate > 86400) return null
+    const user = JSON.parse(params.get('user') ?? 'null')
+    return user?.id ? user : null
+  } catch {
+    return null
+  }
+}
+
+async function authUser(request, env) {
+  const auth = request.headers.get('Authorization') ?? ''
+  if (!auth.startsWith('tma ')) return null
+  return validateInitData(auth.slice(4), env.BOT_TOKEN)
+}
+
+const MAX_BOOKS = 500
+
+// Полная синхронизация библиотеки пользователя в общую базу
+async function handleSync(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  const body = await request.json().catch(() => null)
+  if (!body || !Array.isArray(body.books)) {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  const now = new Date().toISOString()
+  const uid = String(user.id)
+  const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Читатель'
+  const books = body.books.slice(0, MAX_BOOKS)
+
+  const stmts = [
+    env.DB.prepare(
+      `INSERT INTO users (id, name, username, photo_url, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+       ON CONFLICT(id) DO UPDATE SET name=?2, username=?3, photo_url=?4, updated_at=?5`,
+    ).bind(uid, name, user.username ?? null, user.photo_url ?? null, now),
+    env.DB.prepare('DELETE FROM books WHERE user_id = ?1').bind(uid),
+    ...books.map((b) =>
+      env.DB.prepare(
+        `INSERT INTO books (id, user_id, title, author, status, rating, categories,
+                            cover_url, total_pages, current_page, added_at, finished_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+      ).bind(
+        String(b.id ?? crypto.randomUUID()).slice(0, 64),
+        uid,
+        String(b.title ?? '').slice(0, 300),
+        String(b.author ?? '').slice(0, 200),
+        ['want', 'reading', 'read'].includes(b.status) ? b.status : 'want',
+        Number.isFinite(b.rating) ? b.rating : 0,
+        JSON.stringify(Array.isArray(b.categories) ? b.categories.slice(0, 20) : []),
+        typeof b.coverUrl === 'string' ? b.coverUrl.slice(0, 60000) : null,
+        Number.isFinite(b.totalPages) ? b.totalPages : null,
+        Number.isFinite(b.currentPage) ? b.currentPage : null,
+        typeof b.addedAt === 'string' ? b.addedAt : now,
+        typeof b.finishedAt === 'string' ? b.finishedAt : null,
+      ),
+    ),
+  ]
+  await env.DB.batch(stmts)
+  return Response.json({ ok: true }, { headers: corsHeaders(request) })
+}
+
+// Список читателей с краткой статистикой
+async function handleUsers(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.name, u.username, u.photo_url,
+            COUNT(CASE WHEN b.status='read' THEN 1 END) AS read_count,
+            COUNT(CASE WHEN b.status='reading' THEN 1 END) AS reading_count,
+            COUNT(CASE WHEN b.status='want' THEN 1 END) AS want_count
+     FROM users u LEFT JOIN books b ON b.user_id = u.id
+     GROUP BY u.id
+     ORDER BY read_count DESC, u.updated_at DESC
+     LIMIT 200`,
+  ).all()
+  return Response.json({ users: results }, { headers: corsHeaders(request) })
+}
+
+// Профиль одного читателя с его библиотекой
+async function handleUserProfile(request, env, uid) {
+  const user = await env.DB.prepare(
+    'SELECT id, name, username, photo_url FROM users WHERE id = ?1',
+  ).bind(uid).first()
+  if (!user) return new Response('not found', { status: 404, headers: corsHeaders(request) })
+  const { results } = await env.DB.prepare(
+    `SELECT id, title, author, status, rating, categories, cover_url AS coverUrl,
+            total_pages AS totalPages, current_page AS currentPage,
+            added_at AS addedAt, finished_at AS finishedAt
+     FROM books WHERE user_id = ?1 ORDER BY added_at DESC`,
+  ).bind(uid).all()
+  const books = results.map((b) => ({ ...b, categories: JSON.parse(b.categories ?? '[]') }))
+  return Response.json({ user, books }, { headers: corsHeaders(request) })
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
+
+    // Предзапрос CORS от браузера
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders(request) })
+    }
 
     // Приложение отмечается при открытии: /ping?uid=<telegram user id>
     if (url.pathname === '/ping') {
@@ -174,7 +303,20 @@ export default {
       if (uid && /^\d{1,20}$/.test(uid)) {
         await remember(env, `app:${uid}`)
       }
-      return new Response('ok', { headers: CORS })
+      return new Response('ok', { headers: corsHeaders(request) })
+    }
+
+    // --- общая база: профили и библиотеки ---
+    if (url.pathname === '/api/sync' && request.method === 'POST') {
+      return handleSync(request, env)
+    }
+    if (url.pathname === '/api/users') {
+      return handleUsers(request, env)
+    }
+    if (url.pathname.startsWith('/api/user/')) {
+      const uid = url.pathname.slice('/api/user/'.length)
+      if (/^\d{1,20}$/.test(uid)) return handleUserProfile(request, env, uid)
+      return new Response('bad id', { status: 400, headers: corsHeaders(request) })
     }
 
     // JSON-статистика
@@ -183,7 +325,7 @@ export default {
         loadRecords(env, 'app:'),
         loadRecords(env, 'bot:'),
       ])
-      return Response.json(buildStats(appRecords, botRecords), { headers: CORS })
+      return Response.json(buildStats(appRecords, botRecords), { headers: corsHeaders(request) })
     }
 
     // Мини-дашборд

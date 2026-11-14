@@ -708,6 +708,74 @@ body.modal-open {
   font-size: 14px;
 }
 
+/* ---------- вкладка «Читатели» ---------- */
+.readers-list { display: flex; flex-direction: column; gap: 8px; }
+
+.reader-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 14px;
+  background: var(--card, var(--secondary-bg));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.reader-row:active { opacity: 0.8; }
+
+.reader-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reader-avatar-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--button), #4f9cf0);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.reader-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.reader-row-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.reader-row-stats { color: var(--hint); font-size: 12.5px; }
+.reader-row-arrow { color: var(--hint); font-size: 20px; }
+
+.you-badge {
+  background: color-mix(in srgb, var(--button) 15%, transparent);
+  color: var(--link);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.back-btn {
+  border: none;
+  background: none;
+  color: var(--link);
+  font-size: 14.5px;
+  font-weight: 600;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+
+.reader-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.reader-head .reader-avatar { width: 56px; height: 56px; }
+.reader-head .reader-avatar-letter { font-size: 24px; }
+.reader-name { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 8px; }
+.reader-username { color: var(--hint); font-size: 13.5px; margin-top: 2px; }
+
 /* Широкие экраны: библиотека в две колонки.
    Блок в конце файла, чтобы переопределять базовые правила выше. */
 @media (min-width: 900px) {
