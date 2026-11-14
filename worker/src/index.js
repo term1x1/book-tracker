@@ -450,16 +450,17 @@ async function friendsStateOf(env, uid) {
   const { results } = await env.DB.prepare(
     'SELECT user_id, friend_id, status FROM friends WHERE user_id = ?1 OR friend_id = ?1',
   ).bind(uid).all()
-  const accepted = []
-  const incoming = []
-  const outgoing = []
+  // Set — на случай парных записей (A→B и B→A) от старой версии
+  const accepted = new Set()
+  const incoming = new Set()
+  const outgoing = new Set()
   for (const r of results) {
     const other = r.user_id === uid ? r.friend_id : r.user_id
-    if (r.status === 'accepted') accepted.push(other)
-    else if (r.user_id === uid) outgoing.push(other)
-    else incoming.push(other)
+    if (r.status === 'accepted') accepted.add(other)
+    else if (r.user_id === uid) outgoing.add(other)
+    else incoming.add(other)
   }
-  return { accepted, incoming, outgoing }
+  return { accepted: [...accepted], incoming: [...incoming], outgoing: [...outgoing] }
 }
 
 async function handleFriendsList(request, env) {
@@ -654,7 +655,7 @@ async function handleUserProfile(request, env, uid) {
   const books = results.map((b) => ({ ...b, categories: JSON.parse(b.categories ?? '[]') }))
   // друзья этого читателя (только взаимные) — видны всем в его профиле
   const { results: friendRows } = await env.DB.prepare(
-    `SELECT u.id, u.name, u.username, u.photo_url
+    `SELECT DISTINCT u.id, u.name, u.username, u.photo_url
      FROM friends f
      JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
      WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted' AND u.banned = 0
