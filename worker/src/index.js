@@ -1,17 +1,18 @@
 // Telegram-бот трекера книг: отвечает на /start приветствием
 // с кнопкой открытия Mini App. Работает на Cloudflare Workers (бесплатно).
 
-const WELCOME = (name) => `👋 Привет${name ? ', ' + name : ''}!
+const WELCOME = (name) => `${name ? name + ', привет' : 'Привет'}! 📕 Это I💙MB — здесь живут твои книги.
 
-Это «Мои книги» — твой личный трекер чтения прямо в Telegram.
+Что внутри:
 
-📚 Веди библиотеку: «Хочу прочитать» → «Читаю» → «Прочитано»
-🔍 Добавляй книги за секунды — поиск сам подставит автора и обложку
-📖 Отмечай прогресс по страницам
-⭐ Ставь оценки и пиши заметки
-📊 Смотри статистику: сколько прочитано за год, любимые жанры
+📚 Добавь книгу за 10 секунд — обложка и автор подставятся сами
+📖 Отмечай прогресс по страницам и ставь оценки
+👥 Смотри, что читают друзья, и обсуждай книги
+🏆 Получай очки, звания и достижения за прочитанное
 
-Данные хранятся в облаке Telegram и синхронизируются между твоими устройствами. Жми кнопку ниже 👇`
+Библиотека хранится в облаке Telegram — она всегда с тобой, на любом устройстве.
+
+Первая книга займёт полминуты. Начнём? 👇`
 
 async function tg(token, method, payload) {
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -443,43 +444,67 @@ async function handleUsers(request, env) {
   return Response.json({ users: results }, { headers: corsHeaders(request) })
 }
 
-// Список id друзей текущего пользователя
+// Дружба по заявкам: pending (ждёт ответа) / accepted (взаимная).
+// В таблице одна строка на пару: user_id — кто отправил заявку.
+async function friendsStateOf(env, uid) {
+  const { results } = await env.DB.prepare(
+    'SELECT user_id, friend_id, status FROM friends WHERE user_id = ?1 OR friend_id = ?1',
+  ).bind(uid).all()
+  const accepted = []
+  const incoming = []
+  const outgoing = []
+  for (const r of results) {
+    const other = r.user_id === uid ? r.friend_id : r.user_id
+    if (r.status === 'accepted') accepted.push(other)
+    else if (r.user_id === uid) outgoing.push(other)
+    else incoming.push(other)
+  }
+  return { accepted, incoming, outgoing }
+}
+
 async function handleFriendsList(request, env) {
   const user = await authUser(request, env)
   if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
-  const { results } = await env.DB.prepare(
-    'SELECT friend_id FROM friends WHERE user_id = ?1',
-  ).bind(String(user.id)).all()
-  return Response.json({ friends: results.map((r) => r.friend_id) }, { headers: corsHeaders(request) })
+  return Response.json(await friendsStateOf(env, String(user.id)), { headers: corsHeaders(request) })
 }
 
-// Добавить/убрать друга (переключатель)
-async function handleFriendToggle(request, env) {
+// Действия: request (заявка), accept (принять), remove (отклонить/отменить/удалить из друзей)
+async function handleFriendAction(request, env) {
   const user = await authUser(request, env)
   if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
   const body = await request.json().catch(() => null)
-  const friendId = String(body?.friend_id ?? '')
-  if (!/^\d{1,20}$/.test(friendId) || friendId === String(user.id)) {
+  const action = body?.action
+  const fid = String(body?.friend_id ?? '')
+  const uid = String(user.id)
+  if (!/^\d{1,20}$/.test(fid) || fid === uid) {
     return new Response('bad request', { status: 400, headers: corsHeaders(request) })
   }
-  const uid = String(user.id)
-  const existing = await env.DB.prepare(
-    'SELECT 1 AS x FROM friends WHERE user_id = ?1 AND friend_id = ?2',
-  ).bind(uid, friendId).first()
-  if (existing) {
-    await env.DB.prepare('DELETE FROM friends WHERE user_id = ?1 AND friend_id = ?2').bind(uid, friendId).run()
-  } else {
+  if (action === 'request') {
+    const existing = await env.DB.prepare(
+      'SELECT user_id, status FROM friends WHERE (user_id = ?1 AND friend_id = ?2) OR (user_id = ?2 AND friend_id = ?1)',
+    ).bind(uid, fid).first()
+    if (!existing) {
+      await env.DB.prepare(
+        "INSERT INTO friends (user_id, friend_id, created_at, status) VALUES (?1, ?2, ?3, 'pending')",
+      ).bind(uid, fid, new Date().toISOString()).run()
+    } else if (existing.status === 'pending' && existing.user_id === fid) {
+      // встречная заявка — считаем это согласием
+      await env.DB.prepare(
+        "UPDATE friends SET status = 'accepted' WHERE user_id = ?1 AND friend_id = ?2",
+      ).bind(fid, uid).run()
+    }
+  } else if (action === 'accept') {
     await env.DB.prepare(
-      'INSERT INTO friends (user_id, friend_id, created_at) VALUES (?1, ?2, ?3)',
-    ).bind(uid, friendId, new Date().toISOString()).run()
+      "UPDATE friends SET status = 'accepted' WHERE user_id = ?1 AND friend_id = ?2 AND status = 'pending'",
+    ).bind(fid, uid).run()
+  } else if (action === 'remove') {
+    await env.DB.prepare(
+      'DELETE FROM friends WHERE (user_id = ?1 AND friend_id = ?2) OR (user_id = ?2 AND friend_id = ?1)',
+    ).bind(uid, fid).run()
+  } else {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
   }
-  const { results } = await env.DB.prepare(
-    'SELECT friend_id FROM friends WHERE user_id = ?1',
-  ).bind(uid).all()
-  return Response.json(
-    { friends: results.map((r) => r.friend_id), added: !existing },
-    { headers: corsHeaders(request) },
-  )
+  return Response.json(await friendsStateOf(env, uid), { headers: corsHeaders(request) })
 }
 
 // --- админ-панель ---
@@ -627,7 +652,15 @@ async function handleUserProfile(request, env, uid) {
      FROM books WHERE user_id = ?1 ORDER BY added_at DESC`,
   ).bind(uid).all()
   const books = results.map((b) => ({ ...b, categories: JSON.parse(b.categories ?? '[]') }))
-  return Response.json({ user, books }, { headers: corsHeaders(request) })
+  // друзья этого читателя (только взаимные) — видны всем в его профиле
+  const { results: friendRows } = await env.DB.prepare(
+    `SELECT u.id, u.name, u.username, u.photo_url
+     FROM friends f
+     JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
+     WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted' AND u.banned = 0
+     LIMIT 50`,
+  ).bind(uid).all()
+  return Response.json({ user, books, friends: friendRows }, { headers: corsHeaders(request) })
 }
 
 export default {
@@ -688,8 +721,8 @@ export default {
     if (url.pathname === '/api/comments/delete' && request.method === 'POST') {
       return handleCommentDelete(request, env)
     }
-    if (url.pathname === '/api/friends/toggle' && request.method === 'POST') {
-      return handleFriendToggle(request, env)
+    if (url.pathname === '/api/friends/action' && request.method === 'POST') {
+      return handleFriendAction(request, env)
     }
     if (url.pathname.startsWith('/api/user/')) {
       const uid = url.pathname.slice('/api/user/'.length)
@@ -742,7 +775,7 @@ export default {
           text: WELCOME(msg.from?.first_name ?? ''),
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📚 Открыть библиотеку', web_app: { url: env.MINI_APP_URL } }],
+              [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
             ],
           },
         })
@@ -753,7 +786,7 @@ export default {
           text: 'Вся магия — в приложении 👇',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📚 Открыть библиотеку', web_app: { url: env.MINI_APP_URL } }],
+              [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
             ],
           },
         })

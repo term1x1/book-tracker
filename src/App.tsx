@@ -114,8 +114,25 @@ export default function App() {
       )}
       <header className="header">
         <h1>
-          <img src="./logo.png" alt="" className="app-logo" />
-          Мои книги
+          <span className="brand">
+            I
+            <svg className="brand-heart-icon" viewBox="0 0 24 24" aria-hidden>
+              {/* сердце-книга: сердечко, раскрывающееся страницами, как в логотипе */}
+              <path
+                d="M12 20.8C11.6 20.8 7.5 18 5.4 15.6 3.6 13.6 2.9 11.7 3.4 9.8c.5-1.9 2-3.2 3.9-3.3 1.8-.1 3.5.8 4.7 2.4 1.2-1.6 2.9-2.5 4.7-2.4 1.9.1 3.4 1.4 3.9 3.3.5 1.9-.2 3.8-2 5.8-2.1 2.4-6.2 5.2-6.6 5.2Z"
+                fill="#2b7de9"
+              />
+              <path
+                d="M6.6 11.2c1.9 0 3.7.6 5.4 1.9 1.7-1.3 3.5-1.9 5.4-1.9"
+                stroke="#0d1a2c"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path d="M12 13.1v7" stroke="#0d1a2c" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            MB
+          </span>
           {canAddToHomeScreen && (
             <button
               className="home-screen-btn"

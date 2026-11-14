@@ -1,7 +1,7 @@
 {
-  "name": "Мои книги",
-  "short_name": "Книги",
-  "description": "Трекер книг: библиотека, оценки, прогресс чтения и статистика",
+  "name": "I💙MB — i love my book",
+  "short_name": "I💙MB",
+  "description": "Личный трекер чтения: библиотека, прогресс, рейтинг читателей и обсуждения книг",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -10,7 +10,7 @@
   "icons": [
     {
       "src": "./logo.png",
-      "sizes": "256x256",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }

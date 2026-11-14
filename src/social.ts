@@ -54,9 +54,12 @@ export function levelFor(points: number): ReaderLevel {
   return { ...LEVELS[i], next: i + 1 < LEVELS.length ? LEVELS[i + 1].min : null }
 }
 
+export type ReaderBrief = Pick<Reader, 'id' | 'name' | 'username' | 'photo_url'>
+
 export interface ReaderProfile {
-  user: Pick<Reader, 'id' | 'name' | 'username' | 'photo_url'>
+  user: ReaderBrief
   books: Book[]
+  friends: ReaderBrief[]
 }
 
 // Свой Telegram id — чтобы подписать «это вы» в списке
@@ -79,24 +82,34 @@ function authHeaders(): Record<string, string> {
   return tg?.initData ? { Authorization: `tma ${tg.initData}` } : {}
 }
 
-export async function fetchFriends(): Promise<string[]> {
-  if (!tg?.initData) return []
-  const res = await fetch(`${API}/api/friends`, { headers: authHeaders() })
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.friends ?? []
+// Дружба по заявкам: accepted — взаимные друзья,
+// incoming — заявки вам, outgoing — ваши неотвеченные заявки
+export interface FriendsState {
+  accepted: string[]
+  incoming: string[]
+  outgoing: string[]
 }
 
-export async function toggleFriend(friendId: string): Promise<string[] | null> {
+export const EMPTY_FRIENDS: FriendsState = { accepted: [], incoming: [], outgoing: [] }
+
+export async function fetchFriends(): Promise<FriendsState> {
+  if (!tg?.initData) return EMPTY_FRIENDS
+  const res = await fetch(`${API}/api/friends`, { headers: authHeaders() })
+  if (!res.ok) return EMPTY_FRIENDS
+  return res.json()
+}
+
+export type FriendAction = 'request' | 'accept' | 'remove'
+
+export async function friendAction(action: FriendAction, friendId: string): Promise<FriendsState | null> {
   if (!tg?.initData) return null
-  const res = await fetch(`${API}/api/friends/toggle`, {
+  const res = await fetch(`${API}/api/friends/action`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ friend_id: friendId }),
+    body: JSON.stringify({ action, friend_id: friendId }),
   })
   if (!res.ok) return null
-  const data = await res.json()
-  return data.friends ?? []
+  return res.json()
 }
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null
@@ -174,5 +187,9 @@ export async function fetchReaderProfile(id: string): Promise<ReaderProfile> {
   const res = await fetch(`${API}/api/user/${id}`)
   if (!res.ok) throw new Error('failed')
   const data = await res.json()
-  return { user: data.user, books: (data.books ?? []).map(normalizeBook) }
+  return {
+    user: data.user,
+    books: (data.books ?? []).map(normalizeBook),
+    friends: data.friends ?? [],
+  }
 }

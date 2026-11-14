@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { BookComment } from '../social'
 import { bookKey, fetchComments, addComment, deleteComment, myId } from '../social'
 import { haptic } from '../telegram'
+import { IconChat, IconSend } from './Icons'
 
 interface Props {
   title: string
@@ -68,7 +69,7 @@ export default function BookDiscussion({ title, author, onClose }: Props) {
       <div className="modal discussion" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="discussion-title">
-            💬 {title}
+            <span className="discussion-title-row"><IconChat size={17} className="chat-inline" /> {title}</span>
             {author && <span className="discussion-author">{author}</span>}
           </h2>
           <button className="icon-btn" onClick={onClose} aria-label="Закрыть">✕</button>
@@ -119,7 +120,7 @@ export default function BookDiscussion({ title, author, onClose }: Props) {
               maxLength={1000}
             />
             <button className="comment-send" onClick={send} disabled={!text.trim() || sending} aria-label="Отправить">
-              ➤
+              <IconSend size={19} />
             </button>
           </div>
         ) : (

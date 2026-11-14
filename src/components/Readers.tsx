@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react'
 import type { Book, BookStatus } from '../types'
 import { STATUS_LABELS } from '../types'
 import type { Reader, ReaderProfile } from '../social'
+import type { FriendsState, FriendAction } from '../social'
 import {
   fetchReaders,
   fetchReaderProfile,
   fetchFriends,
-  toggleFriend,
+  friendAction,
   myId,
   computePoints,
   levelFor,
+  EMPTY_FRIENDS,
 } from '../social'
 import { haptic } from '../telegram'
 import BookCard from './BookCard'
 import BookDiscussion from './BookDiscussion'
+import { IconCheck, IconBookOpen, IconBookmark, IconStar } from './Icons'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -33,7 +36,7 @@ export default function Readers() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [statusFilter, setStatusFilter] = useState<BookStatus | 'all'>('all')
   const [search, setSearch] = useState('')
-  const [friends, setFriends] = useState<string[]>([])
+  const [friends, setFriends] = useState<FriendsState>(EMPTY_FRIENDS)
   const [discussing, setDiscussing] = useState<Book | null>(null)
 
   useEffect(() => {
@@ -43,11 +46,9 @@ export default function Readers() {
     fetchFriends().then(setFriends).catch(() => {})
   }, [])
 
-  const handleToggleFriend = async (id: string) => {
+  const doFriendAction = async (action: FriendAction, id: string) => {
     haptic('light')
-    // мгновенный отклик, потом сверяемся с сервером
-    setFriends((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
-    const fresh = await toggleFriend(id)
+    const fresh = await friendAction(action, id)
     if (fresh) setFriends(fresh)
   }
 
@@ -91,18 +92,42 @@ export default function Readers() {
             </h2>
             {user.username && <div className="reader-username">@{user.username}</div>}
             <div className="reader-level">
-              {level.emoji} {level.title} · ⭐ {points}
+              {level.emoji} {level.title} · <IconStar size={13} className="star-inline" /> {points}
             </div>
           </div>
           {myId && user.id !== myId && (
-            <button
-              className={friends.includes(user.id) ? 'friend-btn active' : 'friend-btn'}
-              onClick={() => handleToggleFriend(user.id)}
-            >
-              {friends.includes(user.id) ? '✓ В друзьях' : '+ В друзья'}
-            </button>
+            friends.accepted.includes(user.id) ? (
+              <button className="friend-btn active" onClick={() => doFriendAction('remove', user.id)}>
+                ✓ В друзьях
+              </button>
+            ) : friends.outgoing.includes(user.id) ? (
+              <button className="friend-btn pending" onClick={() => doFriendAction('remove', user.id)}>
+                Заявка отправлена
+              </button>
+            ) : friends.incoming.includes(user.id) ? (
+              <button className="friend-btn" onClick={() => doFriendAction('accept', user.id)}>
+                Принять заявку
+              </button>
+            ) : (
+              <button className="friend-btn" onClick={() => doFriendAction('request', user.id)}>
+                + В друзья
+              </button>
+            )
           )}
         </div>
+        {profile.friends.length > 0 && (
+          <div className="profile-friends">
+            <h3 className="readers-section-title">Друзья · {profile.friends.length}</h3>
+            <div className="friends-strip">
+              {profile.friends.map((f) => (
+                <button key={f.id} className="friend-chip" onClick={() => openProfile(f.id)}>
+                  <Avatar name={f.name} photo={f.photo_url} />
+                  <span className="friend-chip-name">{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {level.next !== null && (
           <div className="level-progress">
             <div className="level-progress-bar">
@@ -158,8 +183,11 @@ export default function Readers() {
   const q = search.trim().toLowerCase().replace(/^@/, '')
   const matches = (r: Reader) =>
     !q || r.name.toLowerCase().includes(q) || (r.username ?? '').toLowerCase().includes(q)
-  const friendRows = readers.filter((r) => friends.includes(r.id) && matches(r))
-  const otherRows = readers.filter((r) => !friends.includes(r.id) && matches(r))
+  const requestRows = readers.filter((r) => friends.incoming.includes(r.id) && matches(r))
+  const friendRows = readers.filter((r) => friends.accepted.includes(r.id) && matches(r))
+  const otherRows = readers.filter(
+    (r) => !friends.accepted.includes(r.id) && !friends.incoming.includes(r.id) && matches(r),
+  )
 
   const renderRow = (r: Reader) => {
     const rank = readers.findIndex((x) => x.id === r.id)
@@ -174,10 +202,13 @@ export default function Readers() {
             {r.id === myId && <span className="you-badge">это вы</span>}
           </span>
           <span className="reader-row-stats">
-            {level.emoji} {level.title} · ✅ {r.read_count} · 📖 {r.reading_count} · 🔖 {r.want_count}
+            {level.emoji} {level.title} ·{' '}
+            <span className="stat-ic"><IconCheck size={12} /> {r.read_count}</span> ·{' '}
+            <span className="stat-ic"><IconBookOpen size={12} /> {r.reading_count}</span> ·{' '}
+            <span className="stat-ic"><IconBookmark size={12} /> {r.want_count}</span>
           </span>
         </span>
-        <span className="reader-points">⭐ {r.points}</span>
+        <span className="reader-points"><IconStar size={13} /> {r.points}</span>
       </button>
     )
   }
@@ -191,6 +222,28 @@ export default function Readers() {
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Поиск по имени или @нику"
       />
+      {requestRows.length > 0 && (
+        <>
+          <h3 className="readers-section-title">Заявки в друзья · {requestRows.length}</h3>
+          <div className="readers-list">
+            {requestRows.map((r) => (
+              <div key={r.id} className="reader-row request-row">
+                <Avatar name={r.name} photo={r.photo_url} />
+                <span className="reader-row-text" onClick={() => openProfile(r.id)}>
+                  <span className="reader-row-name">{r.name}</span>
+                  <span className="reader-row-stats">хочет добавить вас в друзья</span>
+                </span>
+                <button className="friend-btn" onClick={() => doFriendAction('accept', r.id)}>
+                  Принять
+                </button>
+                <button className="friend-btn decline" onClick={() => doFriendAction('remove', r.id)} aria-label="Отклонить">
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {friendRows.length > 0 && (
         <>
           <h3 className="readers-section-title">Друзья</h3>
@@ -199,11 +252,13 @@ export default function Readers() {
       )}
       {otherRows.length > 0 && (
         <>
-          {friendRows.length > 0 && <h3 className="readers-section-title">Все читатели</h3>}
+          {(friendRows.length > 0 || requestRows.length > 0) && (
+            <h3 className="readers-section-title">Все читатели</h3>
+          )}
           <div className="readers-list">{otherRows.map(renderRow)}</div>
         </>
       )}
-      {friendRows.length === 0 && otherRows.length === 0 && (
+      {requestRows.length === 0 && friendRows.length === 0 && otherRows.length === 0 && (
         <p className="empty-hint">Никого не нашлось по запросу «{search}».</p>
       )}
     </div>

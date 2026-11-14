@@ -30,7 +30,7 @@ export default function Profile({ books }: Props) {
         <div className="profile-level-badge">
           {level.emoji} {level.title}
         </div>
-        <div className="profile-points">⭐ {points} очков · 📄 {pagesRead.toLocaleString('ru-RU')} страниц прочитано</div>
+        <div className="profile-points">⭐ {points} очков · {pagesRead.toLocaleString('ru-RU')} страниц прочитано</div>
         {level.next !== null && (
           <div className="level-progress profile-progress">
             <div className="level-progress-bar">

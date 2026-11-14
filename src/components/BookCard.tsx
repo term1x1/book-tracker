@@ -1,6 +1,7 @@
 import type { Book } from '../types'
-import { STATUS_EMOJI, STATUS_LABELS } from '../types'
+import { STATUS_LABELS } from '../types'
 import StarRating from './StarRating'
+import { STATUS_ICONS, IconChat } from './Icons'
 
 interface Props {
   book: Book
@@ -25,14 +26,17 @@ export default function BookCard({ book, onClick, onDiscuss }: Props) {
             onDiscuss(book)
           }}
         >
-          💬
+          <IconChat size={16} />
         </button>
       )}
       <div className="book-cover" aria-hidden>
         {book.coverUrl ? (
           <img src={book.coverUrl} alt="" loading="lazy" />
         ) : (
-          STATUS_EMOJI[book.status]
+          (() => {
+            const Icon = STATUS_ICONS[book.status]
+            return <Icon size={26} className="cover-placeholder-icon" />
+          })()
         )}
       </div>
       <div className="book-info">
