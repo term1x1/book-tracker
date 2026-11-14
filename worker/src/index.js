@@ -159,6 +159,155 @@ fetch('/stats.json').then(r => r.json()).then(s => {
 </body>
 </html>`
 
+// Админ-панель: пароль хранится только в localStorage браузера админа
+const ADMIN_HTML = `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Админка · Мои книги</title>
+<style>
+  :root {
+    --bg: #16283f; --page: #0d1a2c; --text: #e8f1fc;
+    --hint: #8ba4c4; --accent: #2b7de9; --danger: #e05f5f; --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #ffffff; --page: #e9f1fc; --text: #13233a; --hint: #64799a; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 14px 60px; }
+  h1 { font-size: 20px; margin: 4px 0 16px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tabs button {
+    flex: 1; padding: 9px; border: none; border-radius: 10px; cursor: pointer;
+    background: var(--bg); color: var(--hint); font-weight: 600; font-size: 13.5px;
+  }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .tile { background: var(--bg); border-radius: var(--radius); padding: 14px; text-align: center; }
+  .num { font-size: 26px; font-weight: 700; }
+  .lbl { color: var(--hint); font-size: 12px; margin-top: 2px; }
+  .card { background: var(--bg); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 0; }
+  .name { font-weight: 600; font-size: 14.5px; }
+  .meta { color: var(--hint); font-size: 12px; margin-top: 2px; word-break: break-word; }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .badge.ban { background: rgba(224,95,95,.18); color: var(--danger); }
+  button.act {
+    border: none; border-radius: 9px; padding: 7px 11px; cursor: pointer;
+    font-size: 12px; font-weight: 600; background: rgba(43,125,233,.15); color: var(--accent);
+  }
+  button.act.danger { background: rgba(224,95,95,.14); color: var(--danger); }
+  .login { max-width: 330px; margin: 15vh auto 0; text-align: center; }
+  .login input {
+    width: 100%; padding: 12px; border-radius: 10px; margin: 12px 0;
+    border: 1px solid var(--hint); background: var(--bg); color: var(--text); font-size: 16px;
+  }
+  .login button.act { width: 100%; padding: 12px; font-size: 14px; background: var(--accent); color: #fff; }
+  .muted { color: var(--hint); font-size: 13px; text-align: center; padding: 14px; }
+  .muted a { color: var(--accent); }
+  .comment-text { font-size: 13.5px; margin-top: 5px; white-space: pre-wrap; word-break: break-word; }
+  .err { color: var(--danger); font-size: 13px; min-height: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">Загрузка…</p></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const app = $('app');
+let KEY = localStorage.getItem('admin_key') || '';
+let TAB = 'overview';
+
+const api = (path, opts = {}) =>
+  fetch('/api/admin/' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + KEY, ...(opts.headers || {}) },
+  }).then((r) => {
+    if (r.status === 401) { throw new Error('auth'); }
+    return r.json();
+  });
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+function showLogin(bad) {
+  app.innerHTML = '<div class="login"><h1>🔐 Админка «Мои книги»</h1>' +
+    '<input id="pw" type="password" placeholder="Пароль администратора">' +
+    '<div class="err">' + (bad ? 'Неверный пароль' : '') + '</div>' +
+    '<button class="act" id="go">Войти</button></div>';
+  const submit = () => { KEY = $('pw').value.trim(); localStorage.setItem('admin_key', KEY); render(); };
+  $('go').onclick = submit;
+  $('pw').onkeydown = (e) => e.key === 'Enter' && submit();
+}
+
+function shell(content) {
+  app.innerHTML = '<h1>🛠 Админка «Мои книги»</h1>' +
+    '<div class="tabs">' +
+    ['overview|Обзор', 'users|Пользователи', 'comments|Отзывы'].map((t) => {
+      const [k, l] = t.split('|');
+      return '<button class="' + (TAB === k ? 'on' : '') + '" onclick="setTab(\\'' + k + '\\')">' + l + '</button>';
+    }).join('') +
+    '</div><div id="content">' + content + '</div>';
+}
+
+window.setTab = (t) => { TAB = t; render(); };
+
+window.doAction = async (action, id, confirmText) => {
+  if (confirmText && !confirm(confirmText)) return;
+  try { await api('action', { method: 'POST', body: JSON.stringify({ action, id }) }); render(); }
+  catch (e) { e.message === 'auth' ? showLogin(true) : alert('Ошибка'); }
+};
+
+async function render() {
+  if (!KEY) return showLogin(false);
+  try {
+    if (TAB === 'overview') {
+      const s = await api('overview');
+      const t = (n, l) => '<div class="tile"><div class="num">' + n + '</div><div class="lbl">' + l + '</div></div>';
+      shell('<div class="grid">' +
+        t(s.db.users, 'пользователей') + t(s.db.books, 'книг в базе') +
+        t(s.db.comments, 'отзывов') + t(s.db.friendships, 'дружб') +
+        t(s.app_active_7d, 'активны 7 дней') + t(s.app_active_30d, 'активны 30 дней') +
+        t(s.bot_total, 'писали боту') + t(s.db.banned, 'в бане') +
+        '</div><p class="muted">График посещений — на <a href="/stats">/stats</a></p>');
+    } else if (TAB === 'users') {
+      const { users } = await api('users');
+      shell(users.length === 0 ? '<p class="muted">Пусто</p>' : users.map((u) =>
+        '<div class="card"><div class="row"><div class="grow">' +
+        '<div class="name">' + esc(u.name) + (u.username ? ' <span style="color:var(--hint)">@' + esc(u.username) + '</span>' : '') +
+        (u.banned ? ' <span class="badge ban">БАН</span>' : '') + '</div>' +
+        '<div class="meta">id ' + esc(u.id) + ' · 📚 ' + u.books_count + ' книг · ✅ ' + u.read_count +
+        ' · ⭐ ' + u.points + ' · был(а) ' + fmtDate(u.updated_at) + '</div></div>' +
+        '<button class="act" onclick="doAction(\\'' + (u.banned ? 'unban' : 'ban') + '\\',\\'' + esc(u.id) + '\\')">' +
+        (u.banned ? 'Разбанить' : 'Забанить') + '</button>' +
+        '<button class="act danger" onclick="doAction(\\'delete_user\\',\\'' + esc(u.id) + '\\',\\'Удалить пользователя и все его данные? Это необратимо.\\')">Удалить</button>' +
+        '</div></div>').join(''));
+    } else {
+      const { comments } = await api('comments');
+      shell(comments.length === 0 ? '<p class="muted">Отзывов пока нет</p>' : comments.map((c) =>
+        '<div class="card"><div class="row"><div class="grow">' +
+        '<div class="name">' + esc(c.name ?? 'Читатель') + (c.username ? ' <span style="color:var(--hint)">@' + esc(c.username) + '</span>' : '') + '</div>' +
+        '<div class="meta">📖 ' + esc(c.book_key.split('|')[0]) + ' · ' + fmtDate(c.created_at) + '</div>' +
+        '<div class="comment-text">' + esc(c.text) + '</div></div>' +
+        '<button class="act danger" onclick="doAction(\\'delete_comment\\',\\'' + esc(c.id) + '\\',\\'Удалить этот отзыв?\\')">Удалить</button>' +
+        '</div></div>').join(''));
+    }
+  } catch (e) {
+    if (e.message === 'auth') showLogin(Boolean(KEY));
+    else shell('<p class="muted">Не удалось загрузить данные</p>');
+  }
+}
+render();
+</script>
+</body>
+</html>`
+
 // Откуда разрешаем запросы: продакшен и локальная разработка
 const ALLOWED_ORIGINS = ['https://term1x1.github.io', 'http://localhost:5173']
 
@@ -216,6 +365,9 @@ const MAX_BOOKS = 500
 async function handleSync(request, env) {
   const user = await authUser(request, env)
   if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  if (await isBanned(env, user.id)) {
+    return new Response('forbidden', { status: 403, headers: corsHeaders(request) })
+  }
   const body = await request.json().catch(() => null)
   if (!body || !Array.isArray(body.books)) {
     return new Response('bad request', { status: 400, headers: corsHeaders(request) })
@@ -269,6 +421,7 @@ async function handleUsers(request, env) {
               CAST(COALESCE(SUM(CASE WHEN b.status='read' THEN COALESCE(b.total_pages, 0) ELSE 0 END), 0) / 10 AS INTEGER)
               AS points
      FROM users u LEFT JOIN books b ON b.user_id = u.id
+     WHERE u.banned = 0
      GROUP BY u.id
      ORDER BY points DESC, read_count DESC, u.updated_at DESC
      LIMIT 200`,
@@ -315,6 +468,80 @@ async function handleFriendToggle(request, env) {
   )
 }
 
+// --- админ-панель ---
+function isAdmin(request, env) {
+  const auth = request.headers.get('Authorization') ?? ''
+  return Boolean(env.ADMIN_KEY) && auth === `Bearer ${env.ADMIN_KEY}`
+}
+
+async function handleAdminOverview(request, env) {
+  const [appRecords, botRecords] = await Promise.all([
+    loadRecords(env, 'app:'),
+    loadRecords(env, 'bot:'),
+  ])
+  const stats = buildStats(appRecords, botRecords)
+  const counts = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM users) AS users,
+            (SELECT COUNT(*) FROM users WHERE banned = 1) AS banned,
+            (SELECT COUNT(*) FROM books) AS books,
+            (SELECT COUNT(*) FROM comments) AS comments,
+            (SELECT COUNT(*) FROM friends) AS friendships`,
+  ).first()
+  return Response.json({ ...stats, db: counts }, { headers: corsHeaders(request) })
+}
+
+async function handleAdminUsers(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.name, u.username, u.banned, u.created_at, u.updated_at,
+            COUNT(CASE WHEN b.status='read' THEN 1 END) AS read_count,
+            COUNT(b.id) AS books_count,
+            COUNT(CASE WHEN b.status='read' THEN 1 END) * 25 +
+              CAST(COALESCE(SUM(CASE WHEN b.status='read' THEN COALESCE(b.total_pages, 0) ELSE 0 END), 0) / 10 AS INTEGER)
+              AS points
+     FROM users u LEFT JOIN books b ON b.user_id = u.id
+     GROUP BY u.id ORDER BY u.updated_at DESC`,
+  ).all()
+  return Response.json({ users: results }, { headers: corsHeaders(request) })
+}
+
+async function handleAdminComments(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT c.id, c.book_key, c.text, c.created_at, c.user_id, u.name, u.username
+     FROM comments c LEFT JOIN users u ON u.id = c.user_id
+     ORDER BY c.created_at DESC LIMIT 200`,
+  ).all()
+  return Response.json({ comments: results }, { headers: corsHeaders(request) })
+}
+
+async function handleAdminAction(request, env) {
+  const body = await request.json().catch(() => null)
+  const action = body?.action
+  const id = String(body?.id ?? '')
+  if (!id) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  if (action === 'ban' || action === 'unban') {
+    await env.DB.prepare('UPDATE users SET banned = ?1 WHERE id = ?2')
+      .bind(action === 'ban' ? 1 : 0, id).run()
+  } else if (action === 'delete_user') {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM books WHERE user_id = ?1').bind(id),
+      env.DB.prepare('DELETE FROM comments WHERE user_id = ?1').bind(id),
+      env.DB.prepare('DELETE FROM friends WHERE user_id = ?1 OR friend_id = ?1').bind(id),
+      env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(id),
+    ])
+  } else if (action === 'delete_comment') {
+    await env.DB.prepare('DELETE FROM comments WHERE id = ?1').bind(id).run()
+  } else {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  return Response.json({ ok: true }, { headers: corsHeaders(request) })
+}
+
+// Забанен ли пользователь (для обычных ручек)
+async function isBanned(env, uid) {
+  const row = await env.DB.prepare('SELECT banned FROM users WHERE id = ?1').bind(String(uid)).first()
+  return row?.banned === 1
+}
+
 // --- отзывы и обсуждения ---
 // Список отзывов по книге: /api/comments?key=<book_key>
 async function handleCommentsList(request, env, key) {
@@ -323,6 +550,7 @@ async function handleCommentsList(request, env, key) {
             u.name, u.username, u.photo_url
      FROM comments c LEFT JOIN users u ON u.id = c.user_id
      WHERE c.book_key = ?1
+       AND (u.banned IS NULL OR u.banned = 0)
      ORDER BY c.created_at ASC
      LIMIT 300`,
   ).bind(key).all()
@@ -339,6 +567,9 @@ async function handleCommentsList(request, env, key) {
 async function handleCommentAdd(request, env) {
   const user = await authUser(request, env)
   if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  if (await isBanned(env, user.id)) {
+    return new Response('forbidden', { status: 403, headers: corsHeaders(request) })
+  }
   const body = await request.json().catch(() => null)
   const key = String(body?.book_key ?? '').trim().slice(0, 400)
   const text = String(body?.text ?? '').trim().slice(0, 1000)
@@ -365,7 +596,7 @@ async function handleCommentDelete(request, env) {
 // Профиль одного читателя с его библиотекой
 async function handleUserProfile(request, env, uid) {
   const user = await env.DB.prepare(
-    'SELECT id, name, username, photo_url FROM users WHERE id = ?1',
+    'SELECT id, name, username, photo_url FROM users WHERE id = ?1 AND banned = 0',
   ).bind(uid).first()
   if (!user) return new Response('not found', { status: 404, headers: corsHeaders(request) })
   const { results } = await env.DB.prepare(
@@ -406,6 +637,25 @@ export default {
     if (url.pathname === '/api/friends' && request.method === 'GET') {
       return handleFriendsList(request, env)
     }
+    // --- админ-панель (всё под паролем ADMIN_KEY) ---
+    if (url.pathname.startsWith('/api/admin/')) {
+      if (!isAdmin(request, env)) {
+        return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+      }
+      if (url.pathname === '/api/admin/overview') return handleAdminOverview(request, env)
+      if (url.pathname === '/api/admin/users') return handleAdminUsers(request, env)
+      if (url.pathname === '/api/admin/comments') return handleAdminComments(request, env)
+      if (url.pathname === '/api/admin/action' && request.method === 'POST') {
+        return handleAdminAction(request, env)
+      }
+      return new Response('not found', { status: 404, headers: corsHeaders(request) })
+    }
+    if (url.pathname === '/admin') {
+      return new Response(ADMIN_HTML, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
+    }
+
     if (url.pathname === '/api/comments' && request.method === 'GET') {
       const key = (url.searchParams.get('key') ?? '').slice(0, 400)
       if (!key) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
