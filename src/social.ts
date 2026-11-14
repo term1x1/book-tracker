@@ -15,6 +15,43 @@ export interface Reader {
   read_count: number
   reading_count: number
   want_count: number
+  points: number
+}
+
+// --- рейтинг ---
+// Очки: прочитанная книга = 25 + её страницы / 10.
+// Формула должна совпадать с SQL в воркере (handleUsers).
+export function computePoints(books: Pick<Book, 'status' | 'totalPages'>[]): number {
+  let points = 0
+  let pages = 0
+  for (const b of books) {
+    if (b.status !== 'read') continue
+    points += 25
+    pages += b.totalPages ?? 0
+  }
+  return points + Math.floor(pages / 10)
+}
+
+export interface ReaderLevel {
+  emoji: string
+  title: string
+  min: number
+  next: number | null // очков до следующего уровня нет — максимум
+}
+
+const LEVELS: Omit<ReaderLevel, 'next'>[] = [
+  { emoji: '🌱', title: 'Новичок', min: 0 },
+  { emoji: '📖', title: 'Читатель', min: 100 },
+  { emoji: '📚', title: 'Книголюб', min: 300 },
+  { emoji: '🐛', title: 'Книжный червь', min: 700 },
+  { emoji: '🦉', title: 'Магистр чтения', min: 1500 },
+  { emoji: '🏆', title: 'Гроссмейстер', min: 3000 },
+]
+
+export function levelFor(points: number): ReaderLevel {
+  let i = 0
+  while (i + 1 < LEVELS.length && points >= LEVELS[i + 1].min) i++
+  return { ...LEVELS[i], next: i + 1 < LEVELS.length ? LEVELS[i + 1].min : null }
 }
 
 export interface ReaderProfile {
@@ -26,6 +63,41 @@ export interface ReaderProfile {
 export const myId: string | null = tg?.initDataUnsafe?.user?.id
   ? String(tg.initDataUnsafe.user.id)
   : null
+
+// Данные своего профиля из Telegram
+export const myProfile = {
+  name:
+    [tg?.initDataUnsafe?.user?.first_name, tg?.initDataUnsafe?.user?.last_name]
+      .filter(Boolean)
+      .join(' ') || 'Читатель',
+  username: tg?.initDataUnsafe?.user?.username ?? null,
+  photo: tg?.initDataUnsafe?.user?.photo_url ?? null,
+}
+
+// --- друзья ---
+function authHeaders(): Record<string, string> {
+  return tg?.initData ? { Authorization: `tma ${tg.initData}` } : {}
+}
+
+export async function fetchFriends(): Promise<string[]> {
+  if (!tg?.initData) return []
+  const res = await fetch(`${API}/api/friends`, { headers: authHeaders() })
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.friends ?? []
+}
+
+export async function toggleFriend(friendId: string): Promise<string[] | null> {
+  if (!tg?.initData) return null
+  const res = await fetch(`${API}/api/friends/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ friend_id: friendId }),
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.friends ?? []
+}
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 

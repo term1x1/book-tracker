@@ -5,11 +5,11 @@ import { loadBooks, saveBooks } from './storage'
 import { haptic, canAddToHomeScreen, addToHomeScreen, pingStats } from './telegram'
 import BookCard from './components/BookCard'
 import BookForm from './components/BookForm'
-import Stats from './components/Stats'
+import Profile from './components/Profile'
 import Readers from './components/Readers'
 import { syncLibrary } from './social'
 
-type Tab = 'library' | 'readers' | 'stats'
+type Tab = 'library' | 'readers' | 'profile'
 type StatusFilter = BookStatus | 'all'
 
 export default function App() {
@@ -112,8 +112,8 @@ export default function App() {
           <button className={tab === 'readers' ? 'tab active' : 'tab'} onClick={() => setTab('readers')}>
             Читатели
           </button>
-          <button className={tab === 'stats' ? 'tab active' : 'tab'} onClick={() => setTab('stats')}>
-            Статистика
+          <button className={tab === 'profile' ? 'tab active' : 'tab'} onClick={() => setTab('profile')}>
+            Профиль
           </button>
         </div>
       </header>
@@ -189,7 +189,7 @@ export default function App() {
       ) : tab === 'readers' ? (
         <Readers />
       ) : (
-        <Stats books={books} />
+        <Profile books={books} />
       )}
 
       {showForm && (

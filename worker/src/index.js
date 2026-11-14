@@ -259,17 +259,60 @@ async function handleSync(request, env) {
 
 // Список читателей с краткой статистикой
 async function handleUsers(request, env) {
+  // очки: прочитанная книга = 25 + её страницы / 10
   const { results } = await env.DB.prepare(
     `SELECT u.id, u.name, u.username, u.photo_url,
             COUNT(CASE WHEN b.status='read' THEN 1 END) AS read_count,
             COUNT(CASE WHEN b.status='reading' THEN 1 END) AS reading_count,
-            COUNT(CASE WHEN b.status='want' THEN 1 END) AS want_count
+            COUNT(CASE WHEN b.status='want' THEN 1 END) AS want_count,
+            COUNT(CASE WHEN b.status='read' THEN 1 END) * 25 +
+              CAST(COALESCE(SUM(CASE WHEN b.status='read' THEN COALESCE(b.total_pages, 0) ELSE 0 END), 0) / 10 AS INTEGER)
+              AS points
      FROM users u LEFT JOIN books b ON b.user_id = u.id
      GROUP BY u.id
-     ORDER BY read_count DESC, u.updated_at DESC
+     ORDER BY points DESC, read_count DESC, u.updated_at DESC
      LIMIT 200`,
   ).all()
   return Response.json({ users: results }, { headers: corsHeaders(request) })
+}
+
+// Список id друзей текущего пользователя
+async function handleFriendsList(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  const { results } = await env.DB.prepare(
+    'SELECT friend_id FROM friends WHERE user_id = ?1',
+  ).bind(String(user.id)).all()
+  return Response.json({ friends: results.map((r) => r.friend_id) }, { headers: corsHeaders(request) })
+}
+
+// Добавить/убрать друга (переключатель)
+async function handleFriendToggle(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  const body = await request.json().catch(() => null)
+  const friendId = String(body?.friend_id ?? '')
+  if (!/^\d{1,20}$/.test(friendId) || friendId === String(user.id)) {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  const uid = String(user.id)
+  const existing = await env.DB.prepare(
+    'SELECT 1 AS x FROM friends WHERE user_id = ?1 AND friend_id = ?2',
+  ).bind(uid, friendId).first()
+  if (existing) {
+    await env.DB.prepare('DELETE FROM friends WHERE user_id = ?1 AND friend_id = ?2').bind(uid, friendId).run()
+  } else {
+    await env.DB.prepare(
+      'INSERT INTO friends (user_id, friend_id, created_at) VALUES (?1, ?2, ?3)',
+    ).bind(uid, friendId, new Date().toISOString()).run()
+  }
+  const { results } = await env.DB.prepare(
+    'SELECT friend_id FROM friends WHERE user_id = ?1',
+  ).bind(uid).all()
+  return Response.json(
+    { friends: results.map((r) => r.friend_id), added: !existing },
+    { headers: corsHeaders(request) },
+  )
 }
 
 // Профиль одного читателя с его библиотекой
@@ -312,6 +355,12 @@ export default {
     }
     if (url.pathname === '/api/users') {
       return handleUsers(request, env)
+    }
+    if (url.pathname === '/api/friends' && request.method === 'GET') {
+      return handleFriendsList(request, env)
+    }
+    if (url.pathname === '/api/friends/toggle' && request.method === 'POST') {
+      return handleFriendToggle(request, env)
     }
     if (url.pathname.startsWith('/api/user/')) {
       const uid = url.pathname.slice('/api/user/'.length)

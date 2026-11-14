@@ -25,7 +25,15 @@ interface TelegramWebApp {
   onEvent(event: string, handler: () => void): void
   isVersionAtLeast(version: string): boolean
   initData: string
-  initDataUnsafe?: { user?: { id?: number } }
+  initDataUnsafe?: {
+    user?: {
+      id?: number
+      first_name?: string
+      last_name?: string
+      username?: string
+      photo_url?: string
+    }
+  }
 }
 
 declare global {
