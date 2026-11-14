@@ -1,5 +1,6 @@
 import type { Book } from '../types'
 import { computePoints, levelFor, myProfile } from '../social'
+import { ACHIEVEMENTS, unlockedCount } from '../achievements'
 import Stats from './Stats'
 
 interface Props {
@@ -46,6 +47,28 @@ export default function Profile({ books }: Props) {
           </div>
         )}
       </div>
+
+      <section className="achievements">
+        <h3 className="achievements-title">
+          🏅 Достижения
+          <span className="achievements-count">{unlockedCount(books)} из {ACHIEVEMENTS.length}</span>
+        </h3>
+        <div className="achievements-grid">
+          {ACHIEVEMENTS.map((a) => {
+            const value = a.value(books)
+            const unlocked = value >= a.target
+            return (
+              <div key={a.id} className={unlocked ? 'achievement unlocked' : 'achievement'} title={a.desc}>
+                <span className="achievement-emoji">{a.emoji}</span>
+                <span className="achievement-name">{a.title}</span>
+                <span className="achievement-progress">
+                  {unlocked ? '✓' : `${Math.min(value, a.target)}/${a.target}`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
       <Stats books={books} />
     </div>

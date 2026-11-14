@@ -860,6 +860,50 @@ body.modal-open {
 .profile-progress { width: 100%; max-width: 320px; margin: 12px 0 0; }
 .profile-progress .level-progress-hint { text-align: center; }
 
+/* ---------- достижения ---------- */
+.achievements { margin-bottom: 14px; }
+
+.achievements-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 10px;
+  font-size: 15px;
+}
+
+.achievements-count { color: var(--hint); font-size: 13px; font-weight: 500; }
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.achievement {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px 8px;
+  border-radius: 12px;
+  background: var(--card, var(--secondary-bg));
+  opacity: 0.45;
+  filter: grayscale(0.9);
+  text-align: center;
+}
+
+.achievement.unlocked {
+  opacity: 1;
+  filter: none;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--button) 20%, var(--card, var(--secondary-bg))), var(--card, var(--secondary-bg)));
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--button) 25%, transparent);
+}
+
+.achievement-emoji { font-size: 24px; }
+.achievement-name { font-size: 11px; font-weight: 600; line-height: 1.25; }
+.achievement-progress { font-size: 10.5px; color: var(--hint); }
+.achievement.unlocked .achievement-progress { color: var(--link); font-weight: 700; }
+
 /* ---------- поиск и друзья ---------- */
 .readers .search { margin-bottom: 12px; }
 
