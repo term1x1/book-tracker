@@ -893,6 +893,127 @@ body.modal-open {
 
 .friend-btn:active { transform: scale(0.96); }
 
+/* ---------- отзывы и обсуждения ---------- */
+.book-card { position: relative; }
+
+.discuss-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--button) 12%, transparent);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discuss-btn:active { transform: scale(0.92); }
+
+.modal.discussion { display: flex; flex-direction: column; }
+
+.discussion-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.discussion-author { color: var(--hint); font-size: 13px; font-weight: 400; }
+
+.comments {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 12px;
+  min-height: 120px;
+  max-height: 46dvh;
+}
+
+.comment { display: flex; gap: 10px; }
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.comment-avatar-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--button), #4f9cf0);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+  background: color-mix(in srgb, var(--button) 7%, transparent);
+  border-radius: 4px 12px 12px 12px;
+  padding: 8px 11px;
+}
+
+.comment.mine .comment-body {
+  background: color-mix(in srgb, var(--button) 16%, transparent);
+}
+
+.comment-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.comment-name { font-weight: 600; font-size: 13px; color: var(--link); }
+.comment-date { color: var(--hint); font-size: 11px; flex: 1; }
+
+.comment-delete {
+  border: none;
+  background: none;
+  color: var(--hint);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.comment-text { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+
+.comment-input-row { display: flex; gap: 8px; align-items: flex-end; }
+
+.comment-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid color-mix(in srgb, var(--hint) 30%, transparent);
+  border-radius: 12px;
+  background: var(--secondary-bg);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px; /* не даёт iOS зумить при фокусе */
+}
+
+.comment-send {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--button), #4f9cf0);
+  color: #fff;
+  font-size: 17px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.comment-send:disabled { opacity: 0.4; }
+.comment-send:active { transform: scale(0.94); }
+
+.comment-login-hint { text-align: center; color: var(--hint); font-size: 13px; margin: 4px 0; }
+
 /* Широкие экраны: библиотека в две колонки.
    Блок в конце файла, чтобы переопределять базовые правила выше. */
 @media (min-width: 900px) {

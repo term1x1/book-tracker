@@ -127,6 +127,47 @@ export async function fetchReaders(): Promise<Reader[]> {
   return data.users ?? []
 }
 
+// --- отзывы и обсуждения ---
+// Ключ обсуждения: одна и та же книга у разных людей = одна дискуссия
+export function bookKey(title: string, author: string): string {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+  return `${norm(title)}|${norm(author)}`
+}
+
+export interface BookComment {
+  id: string
+  text: string
+  created_at: string
+  user: { id: string; name: string; username: string | null; photo_url: string | null }
+}
+
+export async function fetchComments(key: string): Promise<BookComment[]> {
+  const res = await fetch(`${API}/api/comments?key=${encodeURIComponent(key)}`)
+  if (!res.ok) throw new Error('failed')
+  const data = await res.json()
+  return data.comments ?? []
+}
+
+export async function addComment(key: string, text: string): Promise<boolean> {
+  if (!tg?.initData) return false
+  const res = await fetch(`${API}/api/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ book_key: key, text }),
+  })
+  return res.ok
+}
+
+export async function deleteComment(id: string): Promise<boolean> {
+  if (!tg?.initData) return false
+  const res = await fetch(`${API}/api/comments/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ id }),
+  })
+  return res.ok
+}
+
 export async function fetchReaderProfile(id: string): Promise<ReaderProfile> {
   const res = await fetch(`${API}/api/user/${id}`)
   if (!res.ok) throw new Error('failed')

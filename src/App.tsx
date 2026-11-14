@@ -7,6 +7,7 @@ import BookCard from './components/BookCard'
 import BookForm from './components/BookForm'
 import Profile from './components/Profile'
 import Readers from './components/Readers'
+import BookDiscussion from './components/BookDiscussion'
 import { syncLibrary } from './social'
 
 type Tab = 'library' | 'readers' | 'profile'
@@ -21,6 +22,7 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Book | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [discussing, setDiscussing] = useState<Book | null>(null)
 
   useEffect(() => {
     loadBooks()
@@ -170,6 +172,7 @@ export default function App() {
                     setEditing(b)
                     setShowForm(true)
                   }}
+                  onDiscuss={setDiscussing}
                 />
               ))
             )}
@@ -190,6 +193,14 @@ export default function App() {
         <Readers />
       ) : (
         <Profile books={books} />
+      )}
+
+      {discussing && (
+        <BookDiscussion
+          title={discussing.title}
+          author={discussing.author}
+          onClose={() => setDiscussing(null)}
+        />
       )}
 
       {showForm && (

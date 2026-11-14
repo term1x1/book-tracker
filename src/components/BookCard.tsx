@@ -5,9 +5,10 @@ import StarRating from './StarRating'
 interface Props {
   book: Book
   onClick: () => void
+  onDiscuss?: (book: Book) => void
 }
 
-export default function BookCard({ book, onClick }: Props) {
+export default function BookCard({ book, onClick, onDiscuss }: Props) {
   const progress =
     book.status === 'reading' && book.totalPages && book.currentPage
       ? Math.min(100, Math.round((book.currentPage / book.totalPages) * 100))
@@ -15,6 +16,18 @@ export default function BookCard({ book, onClick }: Props) {
 
   return (
     <div className="book-card" onClick={onClick}>
+      {onDiscuss && (
+        <button
+          className="discuss-btn"
+          aria-label="Отзывы о книге"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDiscuss(book)
+          }}
+        >
+          💬
+        </button>
+      )}
       <div className="book-cover" aria-hidden>
         {book.coverUrl ? (
           <img src={book.coverUrl} alt="" loading="lazy" />

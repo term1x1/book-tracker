@@ -13,6 +13,7 @@ import {
 } from '../social'
 import { haptic } from '../telegram'
 import BookCard from './BookCard'
+import BookDiscussion from './BookDiscussion'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -29,6 +30,7 @@ export default function Readers() {
   const [statusFilter, setStatusFilter] = useState<BookStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [friends, setFriends] = useState<string[]>([])
+  const [discussing, setDiscussing] = useState<Book | null>(null)
 
   useEffect(() => {
     fetchReaders()
@@ -125,9 +127,18 @@ export default function Readers() {
           {shown.length === 0 ? (
             <p className="empty-hint">Здесь пока пусто.</p>
           ) : (
-            shown.map((b: Book) => <BookCard key={b.id} book={b} onClick={() => {}} />)
+            shown.map((b: Book) => (
+              <BookCard key={b.id} book={b} onClick={() => setDiscussing(b)} onDiscuss={setDiscussing} />
+            ))
           )}
         </div>
+        {discussing && (
+          <BookDiscussion
+            title={discussing.title}
+            author={discussing.author}
+            onClose={() => setDiscussing(null)}
+          />
+        )}
       </div>
     )
   }

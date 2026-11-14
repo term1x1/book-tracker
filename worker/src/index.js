@@ -315,6 +315,53 @@ async function handleFriendToggle(request, env) {
   )
 }
 
+// --- отзывы и обсуждения ---
+// Список отзывов по книге: /api/comments?key=<book_key>
+async function handleCommentsList(request, env, key) {
+  const { results } = await env.DB.prepare(
+    `SELECT c.id, c.user_id, c.text, c.created_at,
+            u.name, u.username, u.photo_url
+     FROM comments c LEFT JOIN users u ON u.id = c.user_id
+     WHERE c.book_key = ?1
+     ORDER BY c.created_at ASC
+     LIMIT 300`,
+  ).bind(key).all()
+  const comments = results.map((r) => ({
+    id: r.id,
+    text: r.text,
+    created_at: r.created_at,
+    user: { id: r.user_id, name: r.name ?? 'Читатель', username: r.username, photo_url: r.photo_url },
+  }))
+  return Response.json({ comments }, { headers: corsHeaders(request) })
+}
+
+// Новый отзыв
+async function handleCommentAdd(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  const body = await request.json().catch(() => null)
+  const key = String(body?.book_key ?? '').trim().slice(0, 400)
+  const text = String(body?.text ?? '').trim().slice(0, 1000)
+  if (!key || !text) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  const id = crypto.randomUUID()
+  await env.DB.prepare(
+    'INSERT INTO comments (id, book_key, user_id, text, created_at) VALUES (?1, ?2, ?3, ?4, ?5)',
+  ).bind(id, key, String(user.id), text, new Date().toISOString()).run()
+  return Response.json({ ok: true, id }, { headers: corsHeaders(request) })
+}
+
+// Удаление своего отзыва
+async function handleCommentDelete(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  const body = await request.json().catch(() => null)
+  const id = String(body?.id ?? '')
+  if (!id) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  await env.DB.prepare('DELETE FROM comments WHERE id = ?1 AND user_id = ?2')
+    .bind(id, String(user.id)).run()
+  return Response.json({ ok: true }, { headers: corsHeaders(request) })
+}
+
 // Профиль одного читателя с его библиотекой
 async function handleUserProfile(request, env, uid) {
   const user = await env.DB.prepare(
@@ -358,6 +405,17 @@ export default {
     }
     if (url.pathname === '/api/friends' && request.method === 'GET') {
       return handleFriendsList(request, env)
+    }
+    if (url.pathname === '/api/comments' && request.method === 'GET') {
+      const key = (url.searchParams.get('key') ?? '').slice(0, 400)
+      if (!key) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+      return handleCommentsList(request, env, key)
+    }
+    if (url.pathname === '/api/comments' && request.method === 'POST') {
+      return handleCommentAdd(request, env)
+    }
+    if (url.pathname === '/api/comments/delete' && request.method === 'POST') {
+      return handleCommentDelete(request, env)
     }
     if (url.pathname === '/api/friends/toggle' && request.method === 'POST') {
       return handleFriendToggle(request, env)
