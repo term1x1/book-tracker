@@ -9,6 +9,7 @@ import Profile from './components/Profile'
 import Readers from './components/Readers'
 import BookDiscussion from './components/BookDiscussion'
 import { syncLibrary } from './social'
+import { checkForUpdate } from './version'
 
 type Tab = 'library' | 'readers' | 'profile'
 type StatusFilter = BookStatus | 'all'
@@ -23,6 +24,21 @@ export default function App() {
   const [editing, setEditing] = useState<Book | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [discussing, setDiscussing] = useState<Book | null>(null)
+  const [updateReady, setUpdateReady] = useState(false)
+
+  // Автообновление: проверяем версию при старте, при возврате в приложение
+  // и раз в 5 минут — чтобы никто не застревал на старой сборке
+  useEffect(() => {
+    const check = () => checkForUpdate().then((u) => u && setUpdateReady(true))
+    check()
+    const timer = setInterval(check, 5 * 60 * 1000)
+    const onVisible = () => document.visibilityState === 'visible' && check()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 
   useEffect(() => {
     loadBooks()
@@ -89,6 +105,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {updateReady && (
+        <button className="update-banner" onClick={() => location.reload()}>
+          🚀 Вышло обновление — нажмите, чтобы применить
+        </button>
+      )}
       <header className="header">
         <h1>
           <img src="./logo.png" alt="" className="app-logo" />

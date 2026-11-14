@@ -860,6 +860,29 @@ body.modal-open {
 .profile-progress { width: 100%; max-width: 320px; margin: 12px 0 0; }
 .profile-progress .level-progress-hint { text-align: center; }
 
+/* ---------- баннер обновления ---------- */
+.update-banner {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  padding: 11px 14px;
+  background: linear-gradient(135deg, var(--button), #4f9cf0);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  animation: update-pop 0.35s ease;
+}
+
+.update-banner:active { transform: scale(0.98); }
+
+@keyframes update-pop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ---------- достижения ---------- */
 .achievements { margin-bottom: 14px; }
 
