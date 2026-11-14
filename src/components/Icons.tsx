@@ -103,6 +103,36 @@ export function IconStar({ size = 16, className }: IconProps) {
   )
 }
 
+// 👍 лайк
+export function IconThumbUp({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path
+        d="M7.5 10.5 11 4.3c1.3 0 2.2 1 2.2 2.2 0 .6-.3 1.7-.6 2.6h4.3c1.1 0 1.9 1 1.7 2.1l-1 5.3a2 2 0 0 1-2 1.6H7.5m0-7.6v7.6m0-7.6H4.6v7.6h2.9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+// 👎 дизлайк
+export function IconThumbDown({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path
+        d="M16.5 13.5 13 19.7c-1.3 0-2.2-1-2.2-2.2 0-.6.3-1.7.6-2.6H7.1c-1.1 0-1.9-1-1.7-2.1l1-5.3a2 2 0 0 1 2-1.6h8.1m0 7.6V5.9m0 7.6h2.9V5.9h-2.9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export const STATUS_ICONS = {
   want: IconBookmark,
   reading: IconBookOpen,

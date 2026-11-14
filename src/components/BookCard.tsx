@@ -1,15 +1,18 @@
 import type { Book } from '../types'
 import { STATUS_LABELS } from '../types'
+import type { ReactionCounts } from '../social'
 import StarRating from './StarRating'
-import { STATUS_ICONS, IconChat } from './Icons'
+import { STATUS_ICONS, IconChat, IconThumbUp, IconThumbDown } from './Icons'
 
 interface Props {
   book: Book
   onClick: () => void
   onDiscuss?: (book: Book) => void
+  reactions?: ReactionCounts
+  onReact?: (book: Book, value: 1 | -1) => void
 }
 
-export default function BookCard({ book, onClick, onDiscuss }: Props) {
+export default function BookCard({ book, onClick, onDiscuss, reactions, onReact }: Props) {
   const progress =
     book.status === 'reading' && book.totalPages && book.currentPage
       ? Math.min(100, Math.round((book.currentPage / book.totalPages) * 100))
@@ -61,6 +64,32 @@ export default function BookCard({ book, onClick, onDiscuss }: Props) {
             {book.categories.map((c) => (
               <span key={c} className="category-chip">{c}</span>
             ))}
+          </div>
+        )}
+        {reactions && (
+          <div className="reaction-bar">
+            <button
+              className={reactions.mine === 1 ? 'react-btn active' : 'react-btn'}
+              disabled={!onReact}
+              onClick={(e) => {
+                e.stopPropagation()
+                onReact?.(book, 1)
+              }}
+              aria-label="Нравится"
+            >
+              <IconThumbUp size={14} /> {reactions.up}
+            </button>
+            <button
+              className={reactions.mine === -1 ? 'react-btn active down' : 'react-btn'}
+              disabled={!onReact}
+              onClick={(e) => {
+                e.stopPropagation()
+                onReact?.(book, -1)
+              }}
+              aria-label="Не нравится"
+            >
+              <IconThumbDown size={14} /> {reactions.down}
+            </button>
           </div>
         )}
       </div>

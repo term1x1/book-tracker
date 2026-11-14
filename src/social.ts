@@ -183,6 +183,40 @@ export async function deleteComment(id: string): Promise<boolean> {
   return res.ok
 }
 
+// --- лайки/дизлайки книг (глобальные, по ключу «название|автор») ---
+export interface ReactionCounts {
+  up: number
+  down: number
+  mine: number // 1 — мой лайк, -1 — мой дизлайк, 0 — нет
+}
+
+export async function fetchReactions(keys: string[]): Promise<Record<string, ReactionCounts>> {
+  if (keys.length === 0) return {}
+  const res = await fetch(`${API}/api/reactions/get`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ keys: keys.slice(0, 100) }),
+  })
+  if (!res.ok) return {}
+  const data = await res.json()
+  return data.counts ?? {}
+}
+
+export async function setReaction(
+  key: string,
+  value: 1 | -1 | 0,
+  ownerId?: string,
+): Promise<ReactionCounts | null> {
+  if (!tg?.initData) return null
+  const res = await fetch(`${API}/api/reactions/set`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ book_key: key, value, owner_id: ownerId }),
+  })
+  if (!res.ok) return null
+  return res.json()
+}
+
 export async function fetchReaderProfile(id: string): Promise<ReaderProfile> {
   const res = await fetch(`${API}/api/user/${id}`)
   if (!res.ok) throw new Error('failed')

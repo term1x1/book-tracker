@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import type { Book, BookStatus } from '../types'
 import { STATUS_LABELS } from '../types'
 import type { Reader, ReaderProfile } from '../social'
-import type { FriendsState, FriendAction } from '../social'
+import type { FriendsState, FriendAction, ReactionCounts } from '../social'
 import {
   fetchReaders,
   fetchReaderProfile,
   fetchFriends,
   friendAction,
+  fetchReactions,
+  setReaction,
+  bookKey,
   myId,
   computePoints,
   levelFor,
@@ -38,6 +41,7 @@ export default function Readers() {
   const [search, setSearch] = useState('')
   const [friends, setFriends] = useState<FriendsState>(EMPTY_FRIENDS)
   const [discussing, setDiscussing] = useState<Book | null>(null)
+  const [reactions, setReactions] = useState<Record<string, ReactionCounts>>({})
 
   useEffect(() => {
     fetchReaders()
@@ -45,6 +49,25 @@ export default function Readers() {
       .catch(() => setError(true))
     fetchFriends().then(setFriends).catch(() => {})
   }, [])
+
+  const handleReact = async (book: Book, value: 1 | -1) => {
+    if (!myId || !profile) return
+    haptic('light')
+    const key = bookKey(book.title, book.author)
+    const current = reactions[key] ?? { up: 0, down: 0, mine: 0 }
+    const next = current.mine === value ? 0 : value
+    // мгновенный отклик
+    setReactions((prev) => ({
+      ...prev,
+      [key]: {
+        up: current.up + (next === 1 ? 1 : 0) - (current.mine === 1 ? 1 : 0),
+        down: current.down + (next === -1 ? 1 : 0) - (current.mine === -1 ? 1 : 0),
+        mine: next,
+      },
+    }))
+    const fresh = await setReaction(key, next, profile.user.id)
+    if (fresh) setReactions((prev) => ({ ...prev, [key]: fresh }))
+  }
 
   const doFriendAction = async (action: FriendAction, id: string) => {
     haptic('light')
@@ -56,7 +79,11 @@ export default function Readers() {
     setProfileLoading(true)
     setStatusFilter('all')
     try {
-      setProfile(await fetchReaderProfile(id))
+      const p = await fetchReaderProfile(id)
+      setProfile(p)
+      // подтягиваем лайки/дизлайки всех книг профиля
+      const keys = p.books.map((b) => bookKey(b.title, b.author))
+      fetchReactions(keys).then((r) => setReactions((prev) => ({ ...prev, ...r }))).catch(() => {})
     } catch {
       setError(true)
     } finally {
@@ -157,7 +184,14 @@ export default function Readers() {
             <p className="empty-hint">Здесь пока пусто.</p>
           ) : (
             shown.map((b: Book) => (
-              <BookCard key={b.id} book={b} onClick={() => setDiscussing(b)} onDiscuss={setDiscussing} />
+              <BookCard
+                key={b.id}
+                book={b}
+                onClick={() => setDiscussing(b)}
+                onDiscuss={setDiscussing}
+                reactions={reactions[bookKey(b.title, b.author)] ?? { up: 0, down: 0, mine: 0 }}
+                onReact={myId ? handleReact : undefined}
+              />
             ))
           )}
         </div>

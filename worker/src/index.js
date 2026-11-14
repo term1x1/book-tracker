@@ -508,6 +508,106 @@ async function handleFriendAction(request, env) {
   return Response.json(await friendsStateOf(env, uid), { headers: corsHeaders(request) })
 }
 
+// --- лайки/дизлайки книг ---
+// Счётчики по списку книг (до 100 за раз); с подписью — ещё и «моя» реакция
+async function handleReactionsGet(request, env) {
+  const body = await request.json().catch(() => null)
+  const keys = Array.isArray(body?.keys)
+    ? [...new Set(body.keys.slice(0, 100).map((k) => String(k).slice(0, 400)))]
+    : []
+  if (keys.length === 0) {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  const user = await authUser(request, env) // подпись необязательна
+  const uid = user ? String(user.id) : null
+  const placeholders = keys.map((_, i) => `?${i + 1}`).join(',')
+  const { results } = await env.DB.prepare(
+    `SELECT book_key, user_id, value FROM reactions WHERE book_key IN (${placeholders})`,
+  ).bind(...keys).all()
+  const counts = {}
+  for (const k of keys) counts[k] = { up: 0, down: 0, mine: 0 }
+  for (const r of results) {
+    const c = counts[r.book_key]
+    if (!c) continue
+    if (r.value === 1) c.up++
+    else if (r.value === -1) c.down++
+    if (uid && r.user_id === uid) c.mine = r.value
+  }
+  return Response.json({ counts }, { headers: corsHeaders(request) })
+}
+
+// Поставить/снять реакцию. value: 1 лайк, -1 дизлайк, 0 убрать.
+// При новом лайке чужой книги владельцу приходит сообщение от бота.
+async function handleReactionSet(request, env) {
+  const user = await authUser(request, env)
+  if (!user) return new Response('unauthorized', { status: 401, headers: corsHeaders(request) })
+  if (await isBanned(env, user.id)) {
+    return new Response('forbidden', { status: 403, headers: corsHeaders(request) })
+  }
+  const body = await request.json().catch(() => null)
+  const key = String(body?.book_key ?? '').trim().slice(0, 400)
+  const value = body?.value
+  if (!key || ![1, -1, 0].includes(value)) {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  const uid = String(user.id)
+  const prev = await env.DB.prepare(
+    'SELECT value FROM reactions WHERE book_key = ?1 AND user_id = ?2',
+  ).bind(key, uid).first()
+
+  if (value === 0) {
+    await env.DB.prepare('DELETE FROM reactions WHERE book_key = ?1 AND user_id = ?2')
+      .bind(key, uid).run()
+  } else {
+    await env.DB.prepare(
+      'INSERT OR REPLACE INTO reactions (book_key, user_id, value, created_at) VALUES (?1, ?2, ?3, ?4)',
+    ).bind(key, uid, value, new Date().toISOString()).run()
+  }
+
+  // уведомление владельцу книги — только на новый лайк, не чаще 3 в час на пару
+  const ownerId = String(body?.owner_id ?? '')
+  if (value === 1 && prev?.value !== 1 && /^\d{1,20}$/.test(ownerId) && ownerId !== uid) {
+    try {
+      // проверяем, что книга действительно есть у владельца (защита от спама)
+      const { results: ownerBooks } = await env.DB.prepare(
+        'SELECT title, author FROM books WHERE user_id = ?1',
+      ).bind(ownerId).all()
+      const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+      const owned = ownerBooks.find((b) => `${norm(b.title)}|${norm(b.author)}` === key)
+      if (owned) {
+        const rlKey = `rl:like:${uid}:${ownerId}`
+        const sent = Number((await env.USERS.get(rlKey)) ?? 0)
+        if (sent < 3) {
+          await env.USERS.put(rlKey, String(sent + 1), { expirationTtl: 3600 })
+          const liker = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Читатель'
+          await tg(env.BOT_TOKEN, 'sendMessage', {
+            chat_id: ownerId,
+            text: `👍 ${liker} оценил(а) вашу книгу «${owned.title}»`,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
+              ],
+            },
+          })
+        }
+      }
+    } catch {
+      // уведомление не должно ломать реакцию
+    }
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN value = 1 THEN 1 ELSE 0 END) AS up,
+       SUM(CASE WHEN value = -1 THEN 1 ELSE 0 END) AS down
+     FROM reactions WHERE book_key = ?1`,
+  ).bind(key).first()
+  return Response.json(
+    { up: row?.up ?? 0, down: row?.down ?? 0, mine: value },
+    { headers: corsHeaders(request) },
+  )
+}
+
 // --- админ-панель ---
 function isAdmin(request, env) {
   const auth = request.headers.get('Authorization') ?? ''
@@ -711,6 +811,12 @@ export default {
       })
     }
 
+    if (url.pathname === '/api/reactions/get' && request.method === 'POST') {
+      return handleReactionsGet(request, env)
+    }
+    if (url.pathname === '/api/reactions/set' && request.method === 'POST') {
+      return handleReactionSet(request, env)
+    }
     if (url.pathname === '/api/comments' && request.method === 'GET') {
       const key = (url.searchParams.get('key') ?? '').slice(0, 400)
       if (!key) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
