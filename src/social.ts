@@ -107,6 +107,8 @@ export function syncLibrary(books: Book[]) {
   const initData = tg?.initData
   if (!initData) return // вне Telegram не синхронизируем
   if (syncTimer) clearTimeout(syncTimer)
+  // короткая задержка, чтобы серия правок ушла одним запросом,
+  // но успела отправиться до закрытия приложения
   syncTimer = setTimeout(() => {
     const payload = books.map(({ notes: _notes, ...rest }) => rest)
     fetch(`${API}/api/sync`, {
@@ -117,7 +119,7 @@ export function syncLibrary(books: Book[]) {
       },
       body: JSON.stringify({ books: payload }),
     }).catch(() => {})
-  }, 1500)
+  }, 600)
 }
 
 export async function fetchReaders(): Promise<Reader[]> {

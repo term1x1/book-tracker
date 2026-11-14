@@ -18,7 +18,11 @@ import BookDiscussion from './BookDiscussion'
 const MEDALS = ['🥇', '🥈', '🥉']
 
 function Avatar({ name, photo }: { name: string; photo: string | null }) {
-  if (photo) return <img className="reader-avatar" src={photo} alt="" />
+  // если фото не загрузилось (ссылки Telegram со временем устаревают) — буква
+  const [broken, setBroken] = useState(false)
+  if (photo && !broken) {
+    return <img className="reader-avatar" src={photo} alt="" onError={() => setBroken(true)} />
+  }
   return <div className="reader-avatar reader-avatar-letter">{name.trim().charAt(0).toUpperCase() || '📖'}</div>
 }
 

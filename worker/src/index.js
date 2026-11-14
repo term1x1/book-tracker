@@ -368,6 +368,11 @@ async function handleSync(request, env) {
   if (await isBanned(env, user.id)) {
     return new Response('forbidden', { status: 403, headers: corsHeaders(request) })
   }
+  // защита от гигантских запросов (обложек больше, чем нужно, и т.п.)
+  const contentLength = Number(request.headers.get('Content-Length') ?? 0)
+  if (contentLength > 3_000_000) {
+    return new Response('payload too large', { status: 413, headers: corsHeaders(request) })
+  }
   const body = await request.json().catch(() => null)
   if (!body || !Array.isArray(body.books)) {
     return new Response('bad request', { status: 400, headers: corsHeaders(request) })
@@ -395,11 +400,20 @@ async function handleSync(request, env) {
         String(b.title ?? '').slice(0, 300),
         String(b.author ?? '').slice(0, 200),
         ['want', 'reading', 'read'].includes(b.status) ? b.status : 'want',
-        Number.isFinite(b.rating) ? b.rating : 0,
-        JSON.stringify(Array.isArray(b.categories) ? b.categories.slice(0, 20) : []),
-        typeof b.coverUrl === 'string' ? b.coverUrl.slice(0, 60000) : null,
-        Number.isFinite(b.totalPages) ? b.totalPages : null,
-        Number.isFinite(b.currentPage) ? b.currentPage : null,
+        // оценка строго 0–5: защита от накрутки
+        Number.isFinite(b.rating) ? Math.min(5, Math.max(0, Math.round(b.rating))) : 0,
+        JSON.stringify(
+          Array.isArray(b.categories)
+            ? b.categories.slice(0, 20).map((c) => String(c).slice(0, 50))
+            : [],
+        ),
+        // обложка — только https-ссылка или вшитая картинка, ничего другого
+        typeof b.coverUrl === 'string' && /^(https:\/\/|data:image\/)/.test(b.coverUrl)
+          ? b.coverUrl.slice(0, 60000)
+          : null,
+        // страницы ограничены разумным пределом: защита от накрутки очков
+        Number.isFinite(b.totalPages) ? Math.min(20000, Math.max(0, Math.round(b.totalPages))) : null,
+        Number.isFinite(b.currentPage) ? Math.min(20000, Math.max(0, Math.round(b.currentPage))) : null,
         typeof b.addedAt === 'string' ? b.addedAt : now,
         typeof b.finishedAt === 'string' ? b.finishedAt : null,
       ),
@@ -574,6 +588,13 @@ async function handleCommentAdd(request, env) {
   const key = String(body?.book_key ?? '').trim().slice(0, 400)
   const text = String(body?.text ?? '').trim().slice(0, 1000)
   if (!key || !text) return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  // не чаще 5 отзывов в минуту: защита от спама
+  const rlKey = `rl:comment:${user.id}`
+  const sent = Number((await env.USERS.get(rlKey)) ?? 0)
+  if (sent >= 5) {
+    return new Response('too many requests', { status: 429, headers: corsHeaders(request) })
+  }
+  await env.USERS.put(rlKey, String(sent + 1), { expirationTtl: 60 })
   const id = crypto.randomUUID()
   await env.DB.prepare(
     'INSERT INTO comments (id, book_key, user_id, text, created_at) VALUES (?1, ?2, ?3, ?4, ?5)',
@@ -692,8 +713,11 @@ export default {
       })
     }
 
-    // Одноразовая настройка: открыть https://<worker>/setup в браузере
+    // Одноразовая настройка: /setup?key=<ADMIN_KEY> в браузере
     if (url.pathname === '/setup') {
+      if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) {
+        return new Response('unauthorized', { status: 401 })
+      }
       const result = await tg(env.BOT_TOKEN, 'setWebhook', {
         url: `${url.origin}/webhook`,
         secret_token: env.WEBHOOK_SECRET,

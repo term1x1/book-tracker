@@ -373,6 +373,9 @@ body.modal-open {
   color: var(--hint);
   width: 30px;
   height: 30px;
+  flex-shrink: 0; /* длинный заголовок не сжимает крестик в овал */
+  align-self: flex-start;
+  margin-left: 8px;
   border-radius: 50%;
   cursor: pointer;
   font-size: 14px;
@@ -747,8 +750,17 @@ body.modal-open {
 }
 
 .reader-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.reader-row-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; }
-.reader-row-stats { color: var(--hint); font-size: 12.5px; }
+.reader-row-name {
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.reader-row-stats { color: var(--hint); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reader-row-arrow { color: var(--hint); font-size: 20px; }
 
 .you-badge {
@@ -962,6 +974,9 @@ body.modal-open {
 
 /* ---------- отзывы и обсуждения ---------- */
 .book-card { position: relative; }
+
+/* чтобы длинное название не залезало под кнопку 💬 */
+.book-card .book-info { padding-right: 34px; }
 
 .discuss-btn {
   position: absolute;

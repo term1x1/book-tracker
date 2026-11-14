@@ -44,7 +44,9 @@ export default function App() {
     loadBooks()
       .then((loaded) => {
         setBooks(loaded)
-        syncLibrary(loaded) // профиль в общей базе всегда актуален
+        // пустую библиотеку при старте не отправляем: если облако
+        // не ответило, это не повод стереть копию в общей базе
+        if (loaded.length > 0) syncLibrary(loaded)
       })
       .finally(() => setLoading(false))
     pingStats()

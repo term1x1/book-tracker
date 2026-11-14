@@ -118,7 +118,8 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
 
   const parsePages = (v: string): number | null => {
     const n = parseInt(v, 10)
-    return Number.isFinite(n) && n > 0 ? n : null
+    // верхний предел совпадает с проверкой на сервере
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 20000) : null
   }
 
   const handleSave = () => {
