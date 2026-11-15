@@ -10,6 +10,8 @@ import Readers from './components/Readers'
 import BookDiscussion from './components/BookDiscussion'
 import { syncLibrary } from './social'
 import { checkForUpdate } from './version'
+import type { ReadingLog } from './reading-log'
+import { initReadingLog, recordPages, getReadingLog } from './reading-log'
 
 type Tab = 'library' | 'readers' | 'profile'
 type StatusFilter = BookStatus | 'all'
@@ -25,6 +27,7 @@ export default function App() {
   const [showForm, setShowForm] = useState(false)
   const [discussing, setDiscussing] = useState<Book | null>(null)
   const [updateReady, setUpdateReady] = useState(false)
+  const [readingLog, setReadingLog] = useState<ReadingLog>({})
 
   // Автообновление: проверяем версию при старте, при возврате в приложение
   // и раз в 5 минут — чтобы никто не застревал на старой сборке
@@ -41,12 +44,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    loadBooks()
-      .then((loaded) => {
+    Promise.all([loadBooks(), initReadingLog()])
+      .then(([loaded, logData]) => {
         setBooks(loaded)
+        setReadingLog(logData)
         // пустую библиотеку при старте не отправляем: если облако
         // не ответило, это не повод стереть копию в общей базе
-        if (loaded.length > 0) syncLibrary(loaded)
+        if (loaded.length > 0) syncLibrary(loaded, logData)
       })
       .finally(() => setLoading(false))
     pingStats()
@@ -55,12 +59,28 @@ export default function App() {
   const persist = (next: Book[]) => {
     setBooks(next)
     saveBooks(next).catch((e) => console.error('save failed', e))
-    syncLibrary(next)
+    syncLibrary(next, getReadingLog())
+  }
+
+  // Прирост прочитанных страниц для дневника чтения
+  const pagesDelta = (prev: Book | undefined, next: Book): number => {
+    if (!prev) return 0 // добавление книги задним числом не считаем за «сегодня»
+    let delta = 0
+    if (next.currentPage != null) {
+      delta = next.currentPage - (prev.currentPage ?? 0)
+    }
+    // дочитали книгу — засчитываем оставшиеся страницы
+    if (next.status === 'read' && prev.status !== 'read' && next.totalPages) {
+      delta = Math.max(delta, next.totalPages - (prev.currentPage ?? 0))
+    }
+    return delta
   }
 
   const handleSave = (book: Book) => {
-    const exists = books.some((b) => b.id === book.id)
-    persist(exists ? books.map((b) => (b.id === book.id ? book : b)) : [book, ...books])
+    const prev = books.find((b) => b.id === book.id)
+    const delta = pagesDelta(prev, book)
+    if (delta > 0) setReadingLog(recordPages(delta))
+    persist(prev ? books.map((b) => (b.id === book.id ? book : b)) : [book, ...books])
     haptic('success')
     setShowForm(false)
     setEditing(null)
@@ -232,7 +252,7 @@ export default function App() {
       ) : tab === 'readers' ? (
         <Readers />
       ) : (
-        <Profile books={books} />
+        <Profile books={books} readingLog={readingLog} />
       )}
 
       {discussing && (

@@ -60,6 +60,7 @@ export interface ReaderProfile {
   user: ReaderBrief
   books: Book[]
   friends: ReaderBrief[]
+  reading_log: Record<string, number>
 }
 
 // Свой Telegram id — чтобы подписать «это вы» в списке
@@ -116,7 +117,7 @@ let syncTimer: ReturnType<typeof setTimeout> | null = null
 
 // Отправляем библиотеку в общую базу (заметки не отправляем — они личные).
 // Подпись initData подтверждает воркеру, что это действительно вы.
-export function syncLibrary(books: Book[]) {
+export function syncLibrary(books: Book[], readingLog?: Record<string, number>) {
   const initData = tg?.initData
   if (!initData) return // вне Telegram не синхронизируем
   if (syncTimer) clearTimeout(syncTimer)
@@ -130,7 +131,7 @@ export function syncLibrary(books: Book[]) {
         'Content-Type': 'application/json',
         Authorization: `tma ${initData}`,
       },
-      body: JSON.stringify({ books: payload }),
+      body: JSON.stringify({ books: payload, log: readingLog }),
     }).catch(() => {})
   }, 600)
 }
@@ -225,5 +226,6 @@ export async function fetchReaderProfile(id: string): Promise<ReaderProfile> {
     user: data.user,
     books: (data.books ?? []).map(normalizeBook),
     friends: data.friends ?? [],
+    reading_log: data.reading_log ?? {},
   }
 }

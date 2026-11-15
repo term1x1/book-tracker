@@ -1,14 +1,17 @@
 import type { Book } from '../types'
+import type { ReadingLog } from '../reading-log'
 import { computePoints, levelFor, myProfile } from '../social'
 import { ACHIEVEMENTS, unlockedCount } from '../achievements'
 import Stats from './Stats'
+import ReadingCalendar from './ReadingCalendar'
 
 interface Props {
   books: Book[]
+  readingLog: ReadingLog
 }
 
 // Страница своего профиля: кто вы, звание, очки и вся статистика
-export default function Profile({ books }: Props) {
+export default function Profile({ books, readingLog }: Props) {
   const points = computePoints(books)
   const level = levelFor(points)
   const pagesRead = books
@@ -47,6 +50,8 @@ export default function Profile({ books }: Props) {
           </div>
         )}
       </div>
+
+      <ReadingCalendar log={readingLog} />
 
       <section className="achievements">
         <h3 className="achievements-title">

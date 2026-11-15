@@ -19,6 +19,7 @@ import {
 import { haptic } from '../telegram'
 import BookCard from './BookCard'
 import BookDiscussion from './BookDiscussion'
+import ReadingCalendar from './ReadingCalendar'
 import { IconCheck, IconBookOpen, IconBookmark, IconStar } from './Icons'
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -155,6 +156,7 @@ export default function Readers() {
             </div>
           </div>
         )}
+        <ReadingCalendar log={profile.reading_log} />
         {level.next !== null && (
           <div className="level-progress">
             <div className="level-progress-bar">

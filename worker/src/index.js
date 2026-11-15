@@ -383,12 +383,23 @@ async function handleSync(request, env) {
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Читатель'
   const books = body.books.slice(0, MAX_BOOKS)
 
+  // дневник чтения: только валидные даты и разумные числа
+  let logJson = null
+  if (body.log && typeof body.log === 'object' && !Array.isArray(body.log)) {
+    const entries = Object.entries(body.log)
+      .filter(([k, v]) => /^\d{4}-\d{2}-\d{2}$/.test(k) && Number.isFinite(v))
+      .slice(0, 120)
+      .map(([k, v]) => [k, Math.max(0, Math.min(5000, Math.round(v)))])
+    logJson = JSON.stringify(Object.fromEntries(entries))
+  }
+
   const stmts = [
     env.DB.prepare(
-      `INSERT INTO users (id, name, username, photo_url, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?5)
-       ON CONFLICT(id) DO UPDATE SET name=?2, username=?3, photo_url=?4, updated_at=?5`,
-    ).bind(uid, name, user.username ?? null, user.photo_url ?? null, now),
+      `INSERT INTO users (id, name, username, photo_url, created_at, updated_at, reading_log)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)
+       ON CONFLICT(id) DO UPDATE SET name=?2, username=?3, photo_url=?4, updated_at=?5,
+         reading_log=COALESCE(?6, reading_log)`,
+    ).bind(uid, name, user.username ?? null, user.photo_url ?? null, now, logJson),
     env.DB.prepare('DELETE FROM books WHERE user_id = ?1').bind(uid),
     ...books.map((b) =>
       env.DB.prepare(
@@ -743,9 +754,16 @@ async function handleCommentDelete(request, env) {
 // Профиль одного читателя с его библиотекой
 async function handleUserProfile(request, env, uid) {
   const user = await env.DB.prepare(
-    'SELECT id, name, username, photo_url FROM users WHERE id = ?1 AND banned = 0',
+    'SELECT id, name, username, photo_url, reading_log FROM users WHERE id = ?1 AND banned = 0',
   ).bind(uid).first()
   if (!user) return new Response('not found', { status: 404, headers: corsHeaders(request) })
+  let readingLog = {}
+  try {
+    readingLog = JSON.parse(user.reading_log ?? '{}')
+  } catch {
+    readingLog = {}
+  }
+  delete user.reading_log
   const { results } = await env.DB.prepare(
     `SELECT id, title, author, status, rating, categories, cover_url AS coverUrl,
             total_pages AS totalPages, current_page AS currentPage,
@@ -761,7 +779,10 @@ async function handleUserProfile(request, env, uid) {
      WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted' AND u.banned = 0
      LIMIT 50`,
   ).bind(uid).all()
-  return Response.json({ user, books, friends: friendRows }, { headers: corsHeaders(request) })
+  return Response.json(
+    { user, books, friends: friendRows, reading_log: readingLog },
+    { headers: corsHeaders(request) },
+  )
 }
 
 export default {
