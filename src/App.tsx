@@ -8,7 +8,7 @@ import BookForm from './components/BookForm'
 import Profile from './components/Profile'
 import Readers from './components/Readers'
 import BookDiscussion from './components/BookDiscussion'
-import { syncLibrary } from './social'
+import { syncLibrary, bookKey } from './social'
 import { checkForUpdate } from './version'
 import type { ReadingLog } from './reading-log'
 import { initReadingLog, recordPages, getReadingLog } from './reading-log'
@@ -86,6 +86,25 @@ export default function App() {
     setEditing(null)
   }
 
+  // «К себе»: копия чужой книги в свою библиотеку со статусом «Хочу прочитать»
+  const handleTakeBook = (src: Book) => {
+    const key = bookKey(src.title, src.author)
+    if (books.some((b) => bookKey(b.title, b.author) === key)) return
+    const copy: Book = {
+      ...src,
+      id: crypto.randomUUID(),
+      status: 'want',
+      rating: 0,
+      notes: '',
+      addedAt: new Date().toISOString(),
+      finishedAt: null,
+      currentPage: null,
+      pinned: false,
+    }
+    persist([copy, ...books])
+    haptic('success')
+  }
+
   const handleDelete = (id: string) => {
     persist(books.filter((b) => b.id !== id))
     haptic('error')
@@ -107,12 +126,14 @@ export default function App() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return books.filter((b) => {
+    const list = books.filter((b) => {
       if (statusFilter !== 'all' && b.status !== statusFilter) return false
       if (categoryFilter && !b.categories.includes(categoryFilter)) return false
       if (q && !b.title.toLowerCase().includes(q) && !b.author.toLowerCase().includes(q)) return false
       return true
     })
+    // закреплённые — первыми
+    return list.sort((a, b) => Number(b.pinned) - Number(a.pinned))
   }, [books, statusFilter, categoryFilter, search])
 
   const counts = useMemo(() => {
@@ -250,7 +271,7 @@ export default function App() {
           </button>
         </>
       ) : tab === 'readers' ? (
-        <Readers />
+        <Readers myBooks={books} onTakeBook={handleTakeBook} />
       ) : (
         <Profile books={books} readingLog={readingLog} />
       )}
@@ -267,6 +288,7 @@ export default function App() {
         <BookForm
           book={editing}
           knownCategories={knownCategories}
+          pinnedCount={books.filter((b) => b.pinned && b.id !== editing?.id).length}
           onSave={handleSave}
           onDelete={editing ? handleDelete : undefined}
           onClose={() => {

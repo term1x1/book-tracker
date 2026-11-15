@@ -133,6 +133,30 @@ export function IconThumbDown({ size = 16, className }: IconProps) {
   )
 }
 
+// 📌 закреплённая книга
+export function IconPin({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path
+        d="M9 4h6l-.6 5.2 2.6 2.8v1.5H7v-1.5l2.6-2.8L9 4Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M12 13.5V20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// ➕ добавить к себе
+export function IconPlus({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export const STATUS_ICONS = {
   want: IconBookmark,
   reading: IconBookOpen,

@@ -33,7 +33,12 @@ function Avatar({ name, photo }: { name: string; photo: string | null }) {
   return <div className="reader-avatar reader-avatar-letter">{name.trim().charAt(0).toUpperCase() || '📖'}</div>
 }
 
-export default function Readers() {
+interface Props {
+  myBooks: Book[]
+  onTakeBook: (b: Book) => void
+}
+
+export default function Readers({ myBooks, onTakeBook }: Props) {
   const [readers, setReaders] = useState<Reader[] | null>(null)
   const [error, setError] = useState(false)
   const [profile, setProfile] = useState<ReaderProfile | null>(null)
@@ -107,7 +112,11 @@ export default function Readers() {
       reading: books.filter((b) => b.status === 'reading').length,
       read: books.filter((b) => b.status === 'read').length,
     }
-    const shown = statusFilter === 'all' ? books : books.filter((b) => b.status === statusFilter)
+    const shownRaw = statusFilter === 'all' ? books : books.filter((b) => b.status === statusFilter)
+    // закреплённые — первыми
+    const shown = [...shownRaw].sort((a, b) => Number(b.pinned) - Number(a.pinned))
+    const myKeys = new Set(myBooks.map((b) => bookKey(b.title, b.author)))
+    const isMe = user.id === myId
     return (
       <div className="reader-profile">
         <button className="back-btn" onClick={() => setProfile(null)}>← Все читатели</button>
@@ -193,6 +202,8 @@ export default function Readers() {
                 onDiscuss={setDiscussing}
                 reactions={reactions[bookKey(b.title, b.author)] ?? { up: 0, down: 0, mine: 0 }}
                 onReact={myId ? handleReact : undefined}
+                take={isMe ? undefined : myKeys.has(bookKey(b.title, b.author)) ? 'have' : 'can'}
+                onTake={onTakeBook}
               />
             ))
           )}

@@ -2,7 +2,7 @@ import type { Book } from '../types'
 import { STATUS_LABELS } from '../types'
 import type { ReactionCounts } from '../social'
 import StarRating from './StarRating'
-import { STATUS_ICONS, IconChat, IconThumbUp, IconThumbDown } from './Icons'
+import { STATUS_ICONS, IconChat, IconThumbUp, IconThumbDown, IconPin, IconPlus, IconCheck } from './Icons'
 
 interface Props {
   book: Book
@@ -10,9 +10,12 @@ interface Props {
   onDiscuss?: (book: Book) => void
   reactions?: ReactionCounts
   onReact?: (book: Book, value: 1 | -1) => void
+  /** 'can' — можно добавить к себе, 'have' — уже в библиотеке */
+  take?: 'can' | 'have'
+  onTake?: (book: Book) => void
 }
 
-export default function BookCard({ book, onClick, onDiscuss, reactions, onReact }: Props) {
+export default function BookCard({ book, onClick, onDiscuss, reactions, onReact, take, onTake }: Props) {
   const progress =
     book.status === 'reading' && book.totalPages && book.currentPage
       ? Math.min(100, Math.round((book.currentPage / book.totalPages) * 100))
@@ -31,6 +34,11 @@ export default function BookCard({ book, onClick, onDiscuss, reactions, onReact 
         >
           <IconChat size={16} />
         </button>
+      )}
+      {book.pinned && (
+        <span className="pin-badge" title="Закреплена в профиле">
+          <IconPin size={11} />
+        </span>
       )}
       <div className="book-cover" aria-hidden>
         {book.coverUrl ? (
@@ -66,30 +74,46 @@ export default function BookCard({ book, onClick, onDiscuss, reactions, onReact 
             ))}
           </div>
         )}
-        {reactions && (
+        {(reactions || take) && (
           <div className="reaction-bar">
-            <button
-              className={reactions.mine === 1 ? 'react-btn active' : 'react-btn'}
-              disabled={!onReact}
-              onClick={(e) => {
-                e.stopPropagation()
-                onReact?.(book, 1)
-              }}
-              aria-label="Нравится"
-            >
-              <IconThumbUp size={14} /> {reactions.up}
-            </button>
-            <button
-              className={reactions.mine === -1 ? 'react-btn active down' : 'react-btn'}
-              disabled={!onReact}
-              onClick={(e) => {
-                e.stopPropagation()
-                onReact?.(book, -1)
-              }}
-              aria-label="Не нравится"
-            >
-              <IconThumbDown size={14} /> {reactions.down}
-            </button>
+            {take && (
+              <button
+                className={take === 'have' ? 'take-btn have' : 'take-btn'}
+                disabled={take === 'have'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTake?.(book)
+                }}
+              >
+                {take === 'have' ? <><IconCheck size={13} /> У вас</> : <><IconPlus size={13} /> К себе</>}
+              </button>
+            )}
+            {reactions && (
+              <>
+                <button
+                  className={reactions.mine === 1 ? 'react-btn active' : 'react-btn'}
+                  disabled={!onReact}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReact?.(book, 1)
+                  }}
+                  aria-label="Нравится"
+                >
+                  <IconThumbUp size={14} /> {reactions.up}
+                </button>
+                <button
+                  className={reactions.mine === -1 ? 'react-btn active down' : 'react-btn'}
+                  disabled={!onReact}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReact?.(book, -1)
+                  }}
+                  aria-label="Не нравится"
+                >
+                  <IconThumbDown size={14} /> {reactions.down}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

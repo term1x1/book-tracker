@@ -4,16 +4,19 @@ import { STATUS_LABELS, DEFAULT_CATEGORIES } from '../types'
 import type { BookSuggestion } from '../api'
 import { searchBooks } from '../api'
 import StarRating from './StarRating'
+import { IconPin } from './Icons'
 
 interface Props {
   book: Book | null // null = новая книга
   knownCategories: string[]
+  /** Сколько ДРУГИХ книг уже закреплено (лимит 3) */
+  pinnedCount: number
   onSave: (book: Book) => void
   onDelete?: (id: string) => void
   onClose: () => void
 }
 
-export default function BookForm({ book, knownCategories, onSave, onDelete, onClose }: Props) {
+export default function BookForm({ book, knownCategories, pinnedCount, onSave, onDelete, onClose }: Props) {
   const [title, setTitle] = useState(book?.title ?? '')
   const [author, setAuthor] = useState(book?.author ?? '')
   const [status, setStatus] = useState<BookStatus>(book?.status ?? 'want')
@@ -25,6 +28,7 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
   const [currentPage, setCurrentPage] = useState<string>(book?.currentPage ? String(book.currentPage) : '')
   const [newCategory, setNewCategory] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [pinned, setPinned] = useState(book?.pinned ?? false)
 
   // --- автозаполнение ---
   const [suggestions, setSuggestions] = useState<BookSuggestion[]>([])
@@ -143,6 +147,7 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
       coverUrl,
       totalPages: total,
       currentPage: current,
+      pinned,
     })
   }
 
@@ -278,6 +283,19 @@ export default function BookForm({ book, knownCategories, onSave, onDelete, onCl
             />
           </label>
         </div>
+
+        <button
+          className={pinned ? 'pin-toggle active' : 'pin-toggle'}
+          disabled={!pinned && pinnedCount >= 3}
+          onClick={() => setPinned((p) => !p)}
+        >
+          <IconPin size={15} />
+          {pinned
+            ? 'Закреплена в профиле'
+            : pinnedCount >= 3
+              ? 'Закреплено максимум книг (3)'
+              : `Закрепить в профиле · ${pinnedCount}/3`}
+        </button>
 
         <div className="field">
           <span>Оценка</span>

@@ -404,8 +404,8 @@ async function handleSync(request, env) {
     ...books.map((b) =>
       env.DB.prepare(
         `INSERT INTO books (id, user_id, title, author, status, rating, categories,
-                            cover_url, total_pages, current_page, added_at, finished_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+                            cover_url, total_pages, current_page, added_at, finished_at, pinned)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
       ).bind(
         String(b.id ?? crypto.randomUUID()).slice(0, 64),
         uid,
@@ -428,6 +428,7 @@ async function handleSync(request, env) {
         Number.isFinite(b.currentPage) ? Math.min(20000, Math.max(0, Math.round(b.currentPage))) : null,
         typeof b.addedAt === 'string' ? b.addedAt : now,
         typeof b.finishedAt === 'string' ? b.finishedAt : null,
+        b.pinned ? 1 : 0,
       ),
     ),
   ]
@@ -767,8 +768,8 @@ async function handleUserProfile(request, env, uid) {
   const { results } = await env.DB.prepare(
     `SELECT id, title, author, status, rating, categories, cover_url AS coverUrl,
             total_pages AS totalPages, current_page AS currentPage,
-            added_at AS addedAt, finished_at AS finishedAt
-     FROM books WHERE user_id = ?1 ORDER BY added_at DESC`,
+            added_at AS addedAt, finished_at AS finishedAt, pinned
+     FROM books WHERE user_id = ?1 ORDER BY pinned DESC, added_at DESC`,
   ).bind(uid).all()
   const books = results.map((b) => ({ ...b, categories: JSON.parse(b.categories ?? '[]') }))
   // друзья этого читателя (только взаимные) — видны всем в его профиле

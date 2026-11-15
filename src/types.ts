@@ -19,6 +19,8 @@ export interface Book {
   totalPages: number | null
   /** Текущая страница (для статуса "reading") */
   currentPage: number | null
+  /** Закреплена в профиле (витрина, максимум 3) */
+  pinned: boolean
 }
 
 /** Дополняет книги из старых сохранений новыми полями */
@@ -35,6 +37,7 @@ export function normalizeBook(b: Partial<Book> & { id: string; title: string }):
     totalPages: null,
     currentPage: null,
     ...b,
+    pinned: Boolean(b.pinned),
   }
 }
 
