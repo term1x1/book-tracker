@@ -157,6 +157,18 @@ export function IconPlus({ size = 16, className }: IconProps) {
   )
 }
 
+// 📅 календарь чтения
+export function IconCalendar({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 10h16" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.5 3.5v3.4M15.5 3.5v3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="7.4" y="12.6" width="3.4" height="3.4" rx="1" fill="currentColor" />
+    </svg>
+  )
+}
+
 export const STATUS_ICONS = {
   want: IconBookmark,
   reading: IconBookOpen,

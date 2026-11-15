@@ -1,4 +1,5 @@
 import type { ReadingLog } from '../reading-log'
+import { IconCalendar } from './Icons'
 
 interface Props {
   log: ReadingLog
@@ -41,7 +42,8 @@ export default function ReadingCalendar({ log }: Props) {
         className={`cal-cell lvl${lvl}${d === today ? ' today' : ''}${d > today ? ' future' : ''}`}
         title={`${d} ${now.toLocaleDateString('ru-RU', { month: 'long' })}: ${pages} стр.`}
       >
-        {pages > 0 ? pages : d}
+        <span className="cal-pages">{pages > 0 ? pages : '–'}</span>
+        <span className="cal-day">{d}</span>
       </div>,
     )
   }
@@ -49,7 +51,10 @@ export default function ReadingCalendar({ log }: Props) {
   return (
     <section className="reading-cal">
       <h3 className="reading-cal-title">
-        <span>📅 {monthTitle[0].toUpperCase() + monthTitle.slice(1)}</span>
+        <span className="reading-cal-month">
+          <IconCalendar size={16} className="cal-title-icon" />
+          {monthTitle[0].toUpperCase() + monthTitle.slice(1)}
+        </span>
         <span className="reading-cal-total">
           {total > 0 ? `${total.toLocaleString('ru-RU')} стр.` : 'пока 0 стр.'}
         </span>
