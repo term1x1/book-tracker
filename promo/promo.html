@@ -2,9 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- шрифты лежат рядом: рендер не зависит от сети и всегда одинаковый -->
+<link rel="stylesheet" href="./fonts.css" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -27,7 +26,8 @@
   .wrap { position: relative; height: 100%; padding: 38px 36px 0; display: flex; flex-direction: column; }
 
   /* логотип-надпись */
-  .brand { display: flex; align-items: center; gap: 2px; font-family: 'Unbounded'; font-weight: 600; font-size: 20px; letter-spacing: 2px; }
+  /* шрифт логотипа — тот же, что в приложении */
+  .brand { display: flex; align-items: center; gap: 2px; font-family: 'Unbounded', -apple-system, sans-serif; font-weight: 600; font-size: 20px; letter-spacing: 2px; }
   .brand svg { width: 21px; height: 21px; margin: 0 2px; transform: translateY(1px); }
 
   h1 { font-size: 40px; line-height: 1.08; font-weight: 700; letter-spacing: -1px; margin-top: 20px; }
@@ -57,7 +57,15 @@
     box-shadow: 0 26px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07);
     transform: rotate(-4deg);
   }
-  .phone img { width: 100%; height: 100%; object-fit: cover; object-position: top center; border-radius: 28px; display: block; }
+  .phone .screen { width: 100%; height: 100%; border-radius: 28px; overflow: hidden; }
+  /* лёгкий сдвиг вправо: логотип в шапке приложения не прижимается к рамке */
+  .phone img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: top center;
+    display: block;
+    transform: scale(1.06) translateX(6px);
+    transform-origin: top center;
+  }
 
   .cta {
     position: absolute; left: 36px; bottom: 40px;
@@ -123,7 +131,7 @@
     </div>
 
     <div class="phone">
-      <img src="./app-shot.jpg" alt="" />
+      <div class="screen"><img src="./app-shot.jpg" alt="" /></div>
     </div>
 
     <div class="cta">
