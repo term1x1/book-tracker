@@ -150,7 +150,7 @@ export default function App() {
     <div className="app">
       {updateReady && (
         <button className="update-banner" onClick={() => location.reload()}>
-          🚀 Вышло обновление — нажмите, чтобы применить
+          🚀 Вышло обновление — нажми, чтобы применить
         </button>
       )}
       <header className="header">
@@ -241,7 +241,7 @@ export default function App() {
             {filtered.length === 0 ? (
               <p className="empty-hint">
                 {books.length === 0
-                  ? 'Библиотека пуста. Нажмите «+», чтобы добавить первую книгу!'
+                  ? 'Библиотека пуста. Нажми «+», чтобы добавить первую книгу!'
                   : 'Ничего не найдено по заданным фильтрам.'}
               </p>
             ) : (

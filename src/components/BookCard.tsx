@@ -85,7 +85,7 @@ export default function BookCard({ book, onClick, onDiscuss, reactions, onReact,
                   onTake?.(book)
                 }}
               >
-                {take === 'have' ? <><IconCheck size={13} /> У вас</> : <><IconPlus size={13} /> К себе</>}
+                {take === 'have' ? <><IconCheck size={13} /> У тебя</> : <><IconPlus size={13} /> К себе</>}
               </button>
             )}
             {reactions && (

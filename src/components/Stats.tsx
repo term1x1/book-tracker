@@ -85,7 +85,7 @@ export default function Stats({ books }: Props) {
       )}
 
       {books.length === 0 && (
-        <p className="empty-hint">Добавьте первую книгу, и здесь появится статистика 📊</p>
+        <p className="empty-hint">Добавь первую книгу, и здесь появится статистика 📊</p>
       )}
     </div>
   )

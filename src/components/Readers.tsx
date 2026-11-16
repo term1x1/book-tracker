@@ -98,7 +98,7 @@ export default function Readers({ myBooks, onTakeBook }: Props) {
   }
 
   if (error) {
-    return <p className="empty-hint">Не удалось загрузить читателей. Проверьте интернет и попробуйте ещё раз.</p>
+    return <p className="empty-hint">Не удалось загрузить читателей. Проверь интернет и попробуй ещё раз.</p>
   }
 
   // --- профиль читателя ---
@@ -125,7 +125,7 @@ export default function Readers({ myBooks, onTakeBook }: Props) {
           <div className="reader-head-info">
             <h2 className="reader-name">
               {user.name}
-              {user.id === myId && <span className="you-badge">это вы</span>}
+              {user.id === myId && <span className="you-badge">это ты</span>}
             </h2>
             {user.username && <div className="reader-username">@{user.username}</div>}
             <div className="reader-level">
@@ -224,7 +224,7 @@ export default function Readers({ myBooks, onTakeBook }: Props) {
     return <p className="empty-hint">Загрузка…</p>
   }
   if (readers.length === 0) {
-    return <p className="empty-hint">Пока никого нет. Вы станете первым — добавьте книгу!</p>
+    return <p className="empty-hint">Пока никого нет. Станешь первым — добавь книгу!</p>
   }
 
   const q = search.trim().toLowerCase().replace(/^@/, '')
@@ -246,7 +246,7 @@ export default function Readers({ myBooks, onTakeBook }: Props) {
         <span className="reader-row-text">
           <span className="reader-row-name">
             {r.name}
-            {r.id === myId && <span className="you-badge">это вы</span>}
+            {r.id === myId && <span className="you-badge">это ты</span>}
           </span>
           <span className="reader-row-stats">
             {level.emoji} {level.title} ·{' '}
@@ -278,7 +278,7 @@ export default function Readers({ myBooks, onTakeBook }: Props) {
                 <Avatar name={r.name} photo={r.photo_url} />
                 <span className="reader-row-text" onClick={() => openProfile(r.id)}>
                   <span className="reader-row-name">{r.name}</span>
-                  <span className="reader-row-stats">хочет добавить вас в друзья</span>
+                  <span className="reader-row-stats">хочет добавить тебя в друзья</span>
                 </span>
                 <button className="friend-btn" onClick={() => doFriendAction('accept', r.id)}>
                   Принять

@@ -81,7 +81,7 @@ export default function BookDiscussion({ title, author, onClose }: Props) {
           ) : comments === null ? (
             <p className="empty-hint">Загрузка…</p>
           ) : comments.length === 0 ? (
-            <p className="empty-hint">Пока нет отзывов. Будьте первым! ✍️</p>
+            <p className="empty-hint">Пока нет отзывов. Будь первым! ✍️</p>
           ) : (
             comments.map((c) => (
               <div key={c.id} className={c.user.id === myId ? 'comment mine' : 'comment'}>
@@ -115,7 +115,7 @@ export default function BookDiscussion({ title, author, onClose }: Props) {
               className="comment-input"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Ваш отзыв или мысль о книге…"
+              placeholder="Твой отзыв или мысль о книге…"
               rows={2}
               maxLength={1000}
             />
