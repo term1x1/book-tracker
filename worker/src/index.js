@@ -1,18 +1,74 @@
-// Telegram-бот трекера книг: отвечает на /start приветствием
-// с кнопкой открытия Mini App. Работает на Cloudflare Workers (бесплатно).
+// Telegram-бот I💙MB: приветствие, справка и кнопка запуска Mini App.
+// Работает на Cloudflare Workers (бесплатно).
 
-const WELCOME = (name) => `${name ? name + ', привет' : 'Привет'}! 📕 Это I💙MB — здесь живут твои книги.
+const CONTACT = '@term1x_work'
 
-Что внутри:
+function esc(s) {
+  return String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+}
+
+const WELCOME = (name) => `${name ? esc(name) + ', привет' : 'Привет'}! 👋
+
+Это <b>I💙MB</b> — твоя книжная полка прямо в Telegram.
 
 📚 Добавь книгу за 10 секунд — обложка и автор подставятся сами
-📖 Отмечай прогресс по страницам и ставь оценки
+📖 Отмечай прогресс по страницам, ставь оценки и заметки
 👥 Смотри, что читают друзья, и обсуждай книги
 🏆 Получай очки, звания и достижения за прочитанное
 
 Библиотека хранится в облаке Telegram — она всегда с тобой, на любом устройстве.
 
 Первая книга займёт полминуты. Начнём? 👇`
+
+const HELP = `<b>Как пользоваться I💙MB</b>
+
+<b>📚 Библиотека</b>
+Нажми «+» и начни вводить название — поиск сам подставит автора, обложку и число страниц. Если книги нет, заполни вручную и загрузи свою обложку с фото.
+
+<b>📖 Прогресс</b>
+У книги со статусом «Читаю» укажи текущую страницу: появится полоса прогресса, а в профиле загорится день в календаре чтения.
+
+<b>👥 Читатели</b>
+Там рейтинг и поиск по имени или @нику. Заходи в профиль, отправляй заявку в друзья, смотри полки, ставь 👍 книгам и пиши отзывы. Понравившуюся книгу забирай себе кнопкой «К себе».
+
+<b>🏆 Профиль</b>
+Очки за прочитанное, звания от Новичка до Гроссмейстера, 25 достижений и календарь чтения. Три любимые книги можно закрепить — их увидят первыми.
+
+<b>💾 Данные</b>
+Библиотека лежит в облаке Telegram: синхронизируется между твоими устройствами и не теряется.
+
+Вопрос или идея? Напиши ${CONTACT}`
+
+const ABOUT = `<b>I💙MB</b> — i love my book
+
+Книжная полка, которая живёт прямо в Telegram: своя библиотека с обложками, прогресс чтения, друзья, обсуждения и достижения.
+
+Без установки и регистрации, бесплатно. Реклама и сбор лишних данных не предусмотрены: из личного у приложения только то, что ты сам добавил, а заметки к книгам вообще видишь лишь ты.
+
+Идеи и баги — ${CONTACT}`
+
+const FALLBACK = `Я не умею переписываться 🙂 Вся библиотека — в приложении, открой его кнопкой ниже.
+
+/help — как пользоваться
+/about — о приложении`
+
+// Клавиатура: главная кнопка запуска + при необходимости контакт автора
+function keyboard(env, withContact) {
+  const rows = [[{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }]]
+  if (withContact) {
+    rows.push([{ text: '💬 Написать автору', url: `https://t.me/${CONTACT.slice(1)}` }])
+  }
+  return { inline_keyboard: rows }
+}
+
+function say(env, chatId, text, withContact) {
+  return tg(env.BOT_TOKEN, 'sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    reply_markup: keyboard(env, withContact),
+  })
+}
 
 async function tg(token, method, payload) {
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -938,12 +994,38 @@ export default {
       if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) {
         return new Response('unauthorized', { status: 401 })
       }
-      const result = await tg(env.BOT_TOKEN, 'setWebhook', {
-        url: `${url.origin}/webhook`,
-        secret_token: env.WEBHOOK_SECRET,
-        allowed_updates: ['message'],
-      })
-      return Response.json(result)
+      // разом настраиваем всё, что видит пользователь:
+      // webhook, меню команд, имя и описания в профиле бота
+      const [webhook, commands, name, short, description] = await Promise.all([
+        tg(env.BOT_TOKEN, 'setWebhook', {
+          url: `${url.origin}/webhook`,
+          secret_token: env.WEBHOOK_SECRET,
+          allowed_updates: ['message'],
+        }),
+        tg(env.BOT_TOKEN, 'setMyCommands', {
+          commands: [
+            { command: 'start', description: '📖 Открыть библиотеку' },
+            { command: 'help', description: '❓ Как пользоваться' },
+            { command: 'about', description: 'ℹ️ О приложении' },
+          ],
+        }),
+        tg(env.BOT_TOKEN, 'setMyName', { name: 'I💙MB — мои книги' }),
+        tg(env.BOT_TOKEN, 'setMyShortDescription', {
+          short_description:
+            'Твоя книжная полка в Telegram: библиотека с обложками, прогресс чтения, друзья и обсуждения.',
+        }),
+        tg(env.BOT_TOKEN, 'setMyDescription', {
+          description: `I💙MB — книжная полка, которая живёт прямо в Telegram.
+
+📚 Книга добавляется за 10 секунд — обложка и автор сами
+📖 Прогресс по страницам, оценки и заметки
+👥 Полки друзей, обсуждения и рекомендации
+🏆 Очки, звания и 25 достижений
+
+Без установки и регистрации, бесплатно. Жми «Начать» 👇`,
+        }),
+      ])
+      return Response.json({ webhook, commands, name, short, description })
     }
 
     if (url.pathname === '/webhook' && request.method === 'POST') {
@@ -956,27 +1038,18 @@ export default {
       if (msg?.chat?.id) {
         await remember(env, `bot:${msg.chat.id}`)
       }
-      if (msg?.text?.startsWith('/start')) {
-        await tg(env.BOT_TOKEN, 'sendMessage', {
-          chat_id: msg.chat.id,
-          text: WELCOME(msg.from?.first_name ?? ''),
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
-            ],
-          },
-        })
-      } else if (msg?.text) {
-        // на любой другой текст — короткая подсказка с той же кнопкой
-        await tg(env.BOT_TOKEN, 'sendMessage', {
-          chat_id: msg.chat.id,
-          text: 'Вся магия — в приложении 👇',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
-            ],
-          },
-        })
+      if (msg?.text) {
+        // команда может прийти как «/help» или «/help@имя_бота»
+        const cmd = msg.text.trim().split(/[\s@]/)[0].toLowerCase()
+        if (cmd === '/start') {
+          await say(env, msg.chat.id, WELCOME(msg.from?.first_name ?? ''))
+        } else if (cmd === '/help') {
+          await say(env, msg.chat.id, HELP, true)
+        } else if (cmd === '/about') {
+          await say(env, msg.chat.id, ABOUT, true)
+        } else {
+          await say(env, msg.chat.id, FALLBACK)
+        }
       }
       return new Response('ok')
     }
