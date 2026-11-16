@@ -520,6 +520,50 @@ async function handleFriendAction(request, env) {
   return Response.json(await friendsStateOf(env, uid), { headers: corsHeaders(request) })
 }
 
+// --- поиск книг через Google Books ---
+// Прокси с кэшем: ключ не светится в приложении, повторные запросы
+// берутся из KV и не тратят квоту (1000 запросов/день бесплатно)
+async function handleBooksSearch(request, env, url) {
+  const q = (url.searchParams.get('q') ?? '').trim().slice(0, 200)
+  if (q.length < 2) {
+    return new Response('bad request', { status: 400, headers: corsHeaders(request) })
+  }
+  const cacheKey = 'books_q:' + q.toLowerCase().replace(/\s+/g, ' ')
+  const cached = await env.USERS.get(cacheKey)
+  if (cached) {
+    return Response.json(JSON.parse(cached), { headers: corsHeaders(request) })
+  }
+  const keyParam = env.GOOGLE_BOOKS_KEY ? `&key=${env.GOOGLE_BOOKS_KEY}` : ''
+  let items = []
+  try {
+    const res = await fetch(
+      'https://www.googleapis.com/books/v1/volumes?maxResults=6&printType=books&q=' +
+        encodeURIComponent(q) + keyParam,
+    )
+    if (res.ok) {
+      const data = await res.json()
+      items = (data.items ?? [])
+        .map((v) => v.volumeInfo)
+        .filter((v) => v && v.title)
+        .map((v) => ({
+          title: String(v.title).slice(0, 300),
+          author: v.authors?.[0] ? String(v.authors[0]).slice(0, 200) : '',
+          coverUrl: (v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? null)
+            ?.replace(/^http:\/\//, 'https://') ?? null,
+          totalPages: Number.isFinite(v.pageCount) && v.pageCount > 0 ? v.pageCount : null,
+          year: v.publishedDate ? parseInt(v.publishedDate.slice(0, 4), 10) || null : null,
+        }))
+    }
+  } catch {
+    items = []
+  }
+  // пустоту не кэшируем: это может быть исчерпанная квота, а не «нет книги»
+  if (items.length > 0) {
+    await env.USERS.put(cacheKey, JSON.stringify({ items }), { expirationTtl: 604800 })
+  }
+  return Response.json({ items }, { headers: corsHeaders(request) })
+}
+
 // --- лайки/дизлайки книг ---
 // Счётчики по списку книг (до 100 за раз); с подписью — ещё и «моя» реакция
 async function handleReactionsGet(request, env) {
@@ -833,6 +877,9 @@ export default {
       })
     }
 
+    if (url.pathname === '/api/books' && request.method === 'GET') {
+      return handleBooksSearch(request, env, url)
+    }
     if (url.pathname === '/api/reactions/get' && request.method === 'POST') {
       return handleReactionsGet(request, env)
     }

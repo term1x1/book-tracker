@@ -1,5 +1,6 @@
-// Поиск книг через OpenLibrary — бесплатный API без ключа.
-// https://openlibrary.org/dev/docs/api/search
+// Поиск книг: основной источник — Google Books (огромный каталог,
+// русские книги, обложки почти у всех), запасной — OpenLibrary.
+// Оба бесплатны и работают без ключей.
 
 export interface BookSuggestion {
   title: string
@@ -9,6 +10,18 @@ export interface BookSuggestion {
   year: number | null
 }
 
+const LIMIT = 6
+const WORKER = 'https://book-tracker-bot.term1x.workers.dev'
+
+// --- Google Books через наш воркер (прокси с кэшем и ключом) ---
+async function searchGoogleBooks(query: string, signal?: AbortSignal): Promise<BookSuggestion[]> {
+  const res = await fetch(`${WORKER}/api/books?q=${encodeURIComponent(query)}`, { signal })
+  if (!res.ok) throw new Error(`books proxy: ${res.status}`)
+  const data = (await res.json()) as { items?: BookSuggestion[] }
+  return data.items ?? []
+}
+
+// --- OpenLibrary (запасной) ---
 interface OLDoc {
   title?: string
   author_name?: string[]
@@ -17,7 +30,7 @@ interface OLDoc {
   first_publish_year?: number
 }
 
-export async function searchBooks(query: string, signal?: AbortSignal): Promise<BookSuggestion[]> {
+async function searchOpenLibrary(query: string, signal?: AbortSignal): Promise<BookSuggestion[]> {
   const url =
     'https://openlibrary.org/search.json?limit=6&fields=title,author_name,cover_i,number_of_pages_median,first_publish_year&q=' +
     encodeURIComponent(query)
@@ -33,4 +46,25 @@ export async function searchBooks(query: string, signal?: AbortSignal): Promise<
       totalPages: d.number_of_pages_median ?? null,
       year: d.first_publish_year ?? null,
     }))
+}
+
+export async function searchBooks(query: string, signal?: AbortSignal): Promise<BookSuggestion[]> {
+  // оба источника параллельно: Google первым, OpenLibrary добивает остаток
+  const [google, openlib] = await Promise.allSettled([
+    searchGoogleBooks(query, signal),
+    searchOpenLibrary(query, signal),
+  ])
+  const primary = google.status === 'fulfilled' ? google.value : []
+  const fallback = openlib.status === 'fulfilled' ? openlib.value : []
+
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+  const seen = new Set(primary.map((b) => norm(b.title)))
+  const merged = [...primary]
+  for (const b of fallback) {
+    if (merged.length >= LIMIT) break
+    if (seen.has(norm(b.title))) continue
+    seen.add(norm(b.title))
+    merged.push(b)
+  }
+  return merged.slice(0, LIMIT)
 }
