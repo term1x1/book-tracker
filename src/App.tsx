@@ -58,8 +58,14 @@ export default function App() {
 
   const persist = (next: Book[]) => {
     setBooks(next)
-    saveBooks(next).catch((e) => console.error('save failed', e))
     syncLibrary(next, getReadingLog())
+    saveBooks(next)
+      .then((recovered) => {
+        // книги, добавленные на другом устройстве, пока это окно было открыто
+        if (recovered.length === 0) return
+        setBooks((cur) => [...cur, ...recovered.filter((r) => !cur.some((b) => b.id === r.id))])
+      })
+      .catch((e) => console.error('save failed', e))
   }
 
   // Прирост прочитанных страниц для дневника чтения

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { Book } from '../types'
 import { STATUS_LABELS } from '../types'
 import type { ReactionCounts } from '../social'
@@ -21,6 +22,12 @@ export default function BookCard({ book, onClick, onDiscuss, reactions, onReact,
       ? Math.min(100, Math.round((book.currentPage / book.totalPages) * 100))
       : null
 
+  // ссылка на обложку может перестать работать (сайт-источник убрал картинку
+  // или нет сети) — тогда вместо «битого» квадрата показываем значок статуса
+  const [coverBroken, setCoverBroken] = useState(false)
+  useEffect(() => setCoverBroken(false), [book.coverUrl])
+  const Icon = STATUS_ICONS[book.status]
+
   return (
     <div className="book-card" onClick={onClick}>
       {onDiscuss && (
@@ -41,13 +48,10 @@ export default function BookCard({ book, onClick, onDiscuss, reactions, onReact,
         </span>
       )}
       <div className="book-cover" aria-hidden>
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" loading="lazy" />
+        {book.coverUrl && !coverBroken ? (
+          <img src={book.coverUrl} alt="" loading="lazy" onError={() => setCoverBroken(true)} />
         ) : (
-          (() => {
-            const Icon = STATUS_ICONS[book.status]
-            return <Icon size={26} className="cover-placeholder-icon" />
-          })()
+          <Icon size={26} className="cover-placeholder-icon" />
         )}
       </div>
       <div className="book-info">

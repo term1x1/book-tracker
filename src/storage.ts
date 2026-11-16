@@ -22,6 +22,11 @@ const CHUNK_PREFIX = 'books_'
 const META_KEY = 'books_meta'
 const CHUNK_SIZE = 3800 // запас от лимита 4096
 
+// Метка облачной копии, которую видел этот сеанс. Если в облаке окажется
+// версия новее (сохранял другой телефон или вкладка), при записи мы не затираем
+// её, а подмешиваем недостающие книги.
+let baselineCloudAt = 0
+
 export async function loadBooks(): Promise<Book[]> {
   const local = loadFromLocal()
   if (!hasCloudStorage) {
@@ -34,6 +39,7 @@ export async function loadBooks(): Promise<Book[]> {
     const cloud = await loadFromCloud()
     cloudBooks = cloud.books
     cloudSavedAt = cloud.savedAt
+    baselineCloudAt = cloud.savedAt
   } catch (e) {
     console.error('CloudStorage load failed, falling back to localStorage', e)
   }
@@ -50,17 +56,22 @@ export async function loadBooks(): Promise<Book[]> {
 }
 
 // Очередь записи: два быстрых сохранения подряд не перемешивают чанки в облаке
-let saveQueue: Promise<void> = Promise.resolve()
+let saveQueue: Promise<unknown> = Promise.resolve()
 
-export function saveBooks(books: Book[]): Promise<void> {
+/**
+ * Сохраняет библиотеку. Возвращает книги, которые нашлись в облаке, но
+ * отсутствовали у нас (их добавили на другом устройстве) — их нужно показать.
+ */
+export function saveBooks(books: Book[]): Promise<Book[]> {
   const savedAt = Date.now()
   // localStorage всегда пишем как резервную копию
   saveToLocal(books, savedAt)
   if (hasCloudStorage) {
-    saveQueue = saveQueue.catch(() => {}).then(() => saveToCloud(books, savedAt))
-    return saveQueue
+    const next = saveQueue.catch(() => []).then(() => saveToCloud(books, savedAt))
+    saveQueue = next.then(() => {})
+    return next
   }
-  return Promise.resolve()
+  return Promise.resolve([])
 }
 
 function loadFromLocal(): { books: Book[]; savedAt: number } {
@@ -118,7 +129,25 @@ async function setWithRetry(key: string, value: string): Promise<void> {
   }
 }
 
-async function saveToCloud(books: Book[], savedAt: number): Promise<void> {
+async function saveToCloud(books: Book[], savedAt: number): Promise<Book[]> {
+  // Если с момента загрузки облако успел обновить кто-то ещё — не затираем
+  // чужие правки, а возвращаем недостающие книги обратно в список
+  let recovered: Book[] = []
+  try {
+    const meta = await cloudGetItems([META_KEY])
+    const { savedAt: cloudAt } = parseMeta(meta[META_KEY])
+    if (cloudAt > baselineCloudAt) {
+      const cloud = await loadFromCloud()
+      if (cloud.books) {
+        const mine = new Set(books.map((b) => b.id))
+        recovered = cloud.books.filter((b) => !mine.has(b.id)).map(normalizeBook)
+        if (recovered.length > 0) books = [...books, ...recovered]
+      }
+    }
+  } catch {
+    // не смогли свериться — сохраняем как есть
+  }
+
   const json = JSON.stringify(books)
   const chunks: string[] = []
   for (let i = 0; i < json.length; i += CHUNK_SIZE) {
@@ -132,6 +161,8 @@ async function saveToCloud(books: Book[], savedAt: number): Promise<void> {
     await setWithRetry(`${CHUNK_PREFIX}${i}`, chunks[i])
   }
   await setWithRetry(META_KEY, JSON.stringify({ n: chunks.length, t: savedAt }))
+  baselineCloudAt = savedAt
+  if (recovered.length > 0) saveToLocal(books, savedAt)
 
   // удаляем лишние старые чанки
   try {
@@ -145,4 +176,6 @@ async function saveToCloud(books: Book[], savedAt: number): Promise<void> {
   } catch {
     // не критично
   }
+
+  return recovered
 }
