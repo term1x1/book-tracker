@@ -533,6 +533,15 @@ async function handleBooksSearch(request, env, url) {
   if (cached) {
     return Response.json(JSON.parse(cached), { headers: corsHeaders(request) })
   }
+  // не больше 30 живых запросов в минуту с одного адреса:
+  // защищает дневную квоту Google от спама (кэш отдаётся без лимита)
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+  const rlKey = `rl:books:${ip}`
+  const used = Number((await env.USERS.get(rlKey)) ?? 0)
+  if (used >= 30) {
+    return Response.json({ items: [] }, { headers: corsHeaders(request) })
+  }
+  await env.USERS.put(rlKey, String(used + 1), { expirationTtl: 60 })
   const keyParam = env.GOOGLE_BOOKS_KEY ? `&key=${env.GOOGLE_BOOKS_KEY}` : ''
   let items = []
   try {
@@ -548,8 +557,10 @@ async function handleBooksSearch(request, env, url) {
         .map((v) => ({
           title: String(v.title).slice(0, 300),
           author: v.authors?.[0] ? String(v.authors[0]).slice(0, 200) : '',
+          // https вместо http и без «загнутого уголка» на обложке
           coverUrl: (v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? null)
-            ?.replace(/^http:\/\//, 'https://') ?? null,
+            ?.replace(/^http:\/\//, 'https://')
+            .replace(/&edge=curl/, '') ?? null,
           totalPages: Number.isFinite(v.pageCount) && v.pageCount > 0 ? v.pageCount : null,
           year: v.publishedDate ? parseInt(v.publishedDate.slice(0, 4), 10) || null : null,
         }))
