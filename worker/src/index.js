@@ -11,14 +11,28 @@ const WELCOME = (name) => `${name ? esc(name) + ', привет' : 'Привет
 
 Это <b>I💙MB</b> — твоя книжная полка прямо в Telegram.
 
-📚 Добавь книгу за 10 секунд — обложка и автор подставятся сами
-📖 Отмечай прогресс по страницам, ставь оценки и заметки
-👥 Смотри, что читают друзья, и обсуждай книги
-🏆 Получай очки, звания и достижения за прочитанное
+📚 Добавляй книги за 10 секунд — обложка и автор подставятся сами
+📖 Отмечай прогресс, ставь оценки и заметки
+👥 Смотри полки друзей и обсуждай книги
+🏆 Получай очки, звания и достижения
 
-Библиотека хранится в облаке Telegram — она всегда с тобой, на любом устройстве.
+Библиотека хранится в облаке Telegram — всегда с тобой, на любом устройстве.
 
-Первая книга займёт полминуты. Начнём? 👇`
+Первая книга займёт полминуты 👇`
+
+// Приветствие с картинкой-обзором функций; если фото не отдалось — просто текст
+async function sendWelcome(env, chatId, name) {
+  const photo = env.MINI_APP_URL.replace(/\/?$/, '/') + 'welcome.png'
+  const res = await tg(env.BOT_TOKEN, 'sendPhoto', {
+    chat_id: chatId,
+    photo,
+    caption: WELCOME(name),
+    parse_mode: 'HTML',
+    reply_markup: keyboard(env),
+  })
+  if (!res?.ok) await say(env, chatId, WELCOME(name))
+  return res
+}
 
 const HELP = `<b>Как пользоваться I💙MB</b>
 
@@ -1039,7 +1053,7 @@ export default {
         // команда может прийти как «/help» или «/help@имя_бота»
         const cmd = msg.text.trim().split(/[\s@]/)[0].toLowerCase()
         if (cmd === '/start') {
-          await say(env, msg.chat.id, WELCOME(msg.from?.first_name ?? ''))
+          await sendWelcome(env, msg.chat.id, msg.from?.first_name ?? '')
         } else if (cmd === '/help') {
           await say(env, msg.chat.id, HELP, true)
         } else if (cmd === '/about') {
