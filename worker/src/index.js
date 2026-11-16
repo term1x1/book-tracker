@@ -703,15 +703,12 @@ async function handleReactionSet(request, env) {
         if (sent < 3) {
           await env.USERS.put(rlKey, String(sent + 1), { expirationTtl: 3600 })
           const liker = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Читатель'
-          await tg(env.BOT_TOKEN, 'sendMessage', {
-            chat_id: ownerId,
-            text: `👍 ${liker} оценил(а) вашу книгу «${owned.title}»`,
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '📖 Открыть I💙MB', web_app: { url: env.MINI_APP_URL } }],
-              ],
-            },
-          })
+          // формулировка без «оценил(а)»: не зависит от пола читателя
+          await say(
+            env,
+            ownerId,
+            `👍 У твоей книги «${esc(owned.title)}» новый лайк — от <b>${esc(liker)}</b>`,
+          )
         }
       }
     } catch {
